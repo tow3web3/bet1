@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Battle, ChatMessage } from '../types';
 import { useSolanaWallet } from './useSolanaWallet';
 
-const SOCKET_URL = 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.PROD ? undefined : 'http://localhost:4000';
 
 // Ajoute une fonction utilitaire pour abréger les wallets
 function shortWallet(addr: string) {
@@ -38,7 +38,7 @@ export const useGlobalBattle = () => {
 
   useEffect(() => {
     // Crée la connexion socket.io
-    const socket = io(SOCKET_URL);
+    const socket = SOCKET_URL ? io(SOCKET_URL) : io();
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));

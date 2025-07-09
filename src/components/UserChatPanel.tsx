@@ -3,7 +3,7 @@ import { MessageCircle, Send } from 'lucide-react';
 import { useSolanaWallet } from '../hooks/useSolanaWallet';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.PROD ? undefined : 'http://localhost:4000';
 
 interface UserChatMessage {
   id: string;
@@ -20,7 +20,7 @@ const UserChatPanel: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    const socket = SOCKET_URL ? io(SOCKET_URL) : io();
     socketRef.current = socket;
 
     socket.on('user_chat_message', (msg: UserChatMessage) => {
