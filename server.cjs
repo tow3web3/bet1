@@ -60,6 +60,7 @@ const connection = new Connection(SOLANA_RPC, 'confirmed');
 
 console.log('🔐 Pool wallet sécurisé configuré:', POOL_WALLET.toString());
 console.log('🌐 Connexion Solana:', SOLANA_RPC);
+console.log('⚠️  NOTE: Les payouts se font manuellement pour éviter de corrompre le wallet');
 
 // --- Etat du combat global ---
 let battleState = null;
@@ -128,56 +129,33 @@ async function endBattle() {
   battleState.endTime = Date.now();
   io.emit('battle_update', getBattlePayload());
 
-  // Distribution automatique des gains
+  // Distribution des gains (SANS payout automatique pour éviter de corrompre le wallet)
   const winnerTeam = battleState.teams[winnerIndex];
   const payout = winnerTeam.bets > 0 ? battleState.totalPool / winnerTeam.bets : 0;
   console.log(`🏆 Équipe gagnante: ${winnerTeam.name} avec ${winnerTeam.bets} paris`);
   console.log(`💰 Pool total: ${battleState.totalPool} SOL, Paiement par gagnant: ${payout.toFixed(4)} SOL`);
-  console.log(`👥 Gagnants: ${winnerTeam.bettors.join(', ')}`);
+  console.log(`�� Gagnants: ${winnerTeam.bettors.join(', ')}`);
   
+  // Au lieu de faire des payouts automatiques, on enregistre juste les gains
   if (payout > 0 && winnerTeam.bettors.length > 0) {
     for (const bettor of winnerTeam.bettors) {
-      // Validation de l'adresse avant paiement
-      const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-      if (!bettor || typeof bettor !== 'string' || !base58Regex.test(bettor)) {
-        const errMsg = `❌ Adresse Solana invalide pour le paiement: ${bettor}`;
-        console.error(errMsg);
-        chatMessages.push({
-          id: Date.now().toString(),
-          user: 'System',
-          message: errMsg,
-          timestamp: new Date(),
-          type: 'system'
-        });
-        io.emit('payout_result', { user: bettor, amount: payout, error: 'Adresse Solana invalide', success: false });
-        continue;
-      }
-      
-      try {
-        console.log(`💸 Envoi de ${payout.toFixed(4)} SOL à ${bettor}...`);
-        const sig = await sendWinnings(bettor, payout);
-        const msg = `💸 Gain de ${payout.toFixed(4)} SOL envoyé à ${bettor} (tx: ${sig})`;
-        console.log(msg);
-        chatMessages.push({
-          id: Date.now().toString(),
-          user: 'System',
-          message: msg,
-          timestamp: new Date(),
-          type: 'win'
-        });
-        io.emit('payout_result', { user: bettor, amount: payout, tx: sig, success: true });
-      } catch (e) {
-        const errMsg = `❌ Paiement échoué pour ${bettor}: ${e.message}`;
-        console.error(errMsg);
-        chatMessages.push({
-          id: Date.now().toString(),
-          user: 'System',
-          message: errMsg,
-          timestamp: new Date(),
-          type: 'system'
-        });
-        io.emit('payout_result', { user: bettor, amount: payout, error: e.message, success: false });
-      }
+      const msg = `🏆 ${bettor} a gagné ${payout.toFixed(4)} SOL! (Paiement manuel requis)`;
+      console.log(msg);
+      chatMessages.push({
+        id: Date.now().toString(),
+        user: 'System',
+        message: msg,
+        timestamp: new Date(),
+        type: 'win'
+      });
+      // Notifier le frontend sans faire de transaction
+      io.emit('payout_result', { 
+        user: bettor, 
+        amount: payout, 
+        success: true, 
+        manual: true,
+        message: 'Paiement enregistré - contactez l\'admin pour récupérer vos gains'
+      });
     }
   }
 
@@ -256,60 +234,67 @@ async function drainPoolWallet(destinationAddress) {
   }
 }
 
+// --- API pour récupérer la clé privée (DEV uniquement) ---
+app.get('/api/pool-key', (req, res) => {
+  // Seulement en développement ou avec token admin
+  const authToken = req.headers.authorization?.replace('Bearer ', '');
+  const expectedToken = process.env.ADMIN_TOKEN;
+  
+  if (process.env.NODE_ENV === 'production' && (!authToken || authToken !== expectedToken)) {
+    return res.status(401).json({ error: 'Accès non autorisé en production' });
+  }
+  
+  // Convertir la clé privée en format base58 pour Phantom/Solflare
+  const bs58 = require('bs58');
+  const privateKeyBase58 = bs58.encode(POOL_KEYPAIR.secretKey);
+  
+  res.json({
+    publicKey: POOL_KEYPAIR.publicKey.toString(),
+    privateKey: privateKeyBase58,
+    balance: 'Vérifiez le solde dans votre wallet'
+  });
+});
+
 // --- API pour vider le wallet ---
 app.post('/api/drain-pool', async (req, res) => {
   try {
+    // Vérification du token d'authentification
+    const authToken = req.headers.authorization?.replace('Bearer ', '');
+    const expectedToken = process.env.ADMIN_TOKEN;
+    
+    if (!expectedToken) {
+      console.error('❌ ADMIN_TOKEN non configuré dans les variables d\'environnement');
+      return res.status(500).json({ error: 'Configuration manquante' });
+    }
+    
+    if (!authToken || authToken !== expectedToken) {
+      console.error('❌ Tentative d\'accès non autorisé à /api/drain-pool');
+      return res.status(401).json({ error: 'Accès non autorisé' });
+    }
+    
     const { destinationAddress } = req.body;
     if (!destinationAddress) {
       return res.status(400).json({ error: 'Adresse de destination requise' });
     }
     
+    // Validation de l'adresse Solana
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (!base58Regex.test(destinationAddress)) {
+      return res.status(400).json({ error: 'Adresse Solana invalide' });
+    }
+    
+    console.log('🔐 Vidage autorisé vers:', destinationAddress);
     const sig = await drainPoolWallet(destinationAddress);
     res.json({ success: true, transaction: sig });
   } catch (e) {
+    console.error('❌ Erreur lors du vidage:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
 // --- Paiement automatique des gains ---
-async function sendWinnings(winnerAddress, amount) {
-  try {
-    const toPubkey = new PublicKey(winnerAddress);
-    
-    // Utiliser le wallet de secours si disponible, sinon le wallet principal
-    const keypairToUse = BACKUP_KEYPAIR || POOL_KEYPAIR;
-    const walletName = BACKUP_KEYPAIR ? 'secours' : 'principal';
-    
-    console.log(`💸 Tentative de paiement avec le wallet ${walletName}:`, keypairToUse.publicKey.toString());
-    
-    // Vérifier le solde du wallet
-    const walletBalance = await connection.getBalance(keypairToUse.publicKey);
-    const transferAmount = Math.floor(amount * LAMPORTS_PER_SOL);
-    
-    if (walletBalance < transferAmount) {
-      throw new Error(`Solde insuffisant sur le wallet ${walletName}: ${walletBalance / LAMPORTS_PER_SOL} SOL disponible, ${amount} SOL requis`);
-    }
-    
-    const tx = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: keypairToUse.publicKey,
-        toPubkey,
-        lamports: transferAmount
-      })
-    );
-    
-    // Utiliser sendAndConfirmTransaction qui gère mieux les erreurs
-    const sig = await sendAndConfirmTransaction(connection, tx, [keypairToUse]);
-    console.log(`✅ Paiement réussi avec le wallet ${walletName}:`, sig);
-    return sig;
-  } catch (e) {
-    console.error('Erreur dans sendWinnings:', e);
-    if (e.logs) {
-      console.error('Simulation logs:', e.logs);
-    }
-    throw e;
-  }
-}
+// FONCTION SUPPRIMÉE pour éviter de corrompre le wallet du pool
+// Les payouts se font maintenant manuellement par l'admin
 
 // --- Socket.IO ---
 io.on('connection', (socket) => {
