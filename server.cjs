@@ -201,20 +201,39 @@ function getBattlePayload() {
 // --- Paiement automatique des gains ---
 async function sendWinnings(winnerAddress, amount) {
   try {
+    // Vérifier le solde du pool avant le transfert
+    const poolBalance = await connection.getBalance(POOL_KEYPAIR.publicKey);
+    const requiredAmount = Math.floor(amount * LAMPORTS_PER_SOL);
+    
+    console.log(`💰 Solde du pool: ${poolBalance / LAMPORTS_PER_SOL} SOL`);
+    console.log(`💸 Montant requis: ${amount} SOL (${requiredAmount} lamports)`);
+    
+    if (poolBalance < requiredAmount) {
+      throw new Error(`Solde insuffisant: ${poolBalance / LAMPORTS_PER_SOL} SOL disponible, ${amount} SOL requis`);
+    }
+    
+    // Vérifier que le compte source est un compte système pur
+    const accountInfo = await connection.getAccountInfo(POOL_KEYPAIR.publicKey);
+    if (accountInfo && accountInfo.data.length > 0) {
+      console.warn('⚠️ Le compte pool contient des données. Cela peut causer des erreurs de transfert.');
+    }
+    
     const toPubkey = new PublicKey(winnerAddress);
     const tx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: POOL_KEYPAIR.publicKey,
         toPubkey,
-        lamports: Math.floor(amount * LAMPORTS_PER_SOL)
+        lamports: requiredAmount
       })
     );
     tx.feePayer = POOL_KEYPAIR.publicKey;
     const { blockhash } = await connection.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
+    
     // S'assurer qu'aucune donnée n'est attachée au compte source
     // et que la clé privée du pool est bien utilisée
     tx.sign(POOL_KEYPAIR);
+    
     try {
       const sig = await connection.sendRawTransaction(tx.serialize());
       await connection.confirmTransaction(sig);
