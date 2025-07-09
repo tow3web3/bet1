@@ -2,6 +2,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -145,6 +146,13 @@ io.on('connection', (socket) => {
 // --- Lancement du premier combat ---
 battleState = createNewBattle();
 scheduleBattle();
+
+// Sert les fichiers statiques du build React
+app.use(express.static(path.join(__dirname, 'dist')));
+// Pour toute autre route, renvoie index.html (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
