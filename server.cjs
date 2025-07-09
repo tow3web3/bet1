@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
 require('dotenv').config();
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -292,6 +293,13 @@ app.get('/api/export', (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="battle_history.json"');
   res.setHeader('Content-Type', 'application/json');
   res.send(JSON.stringify(battleHistory, null, 2));
+});
+
+// Sert les fichiers statiques du build React
+app.use(express.static(path.join(__dirname, 'dist')));
+// Pour toute autre route, renvoie index.html (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 4000;
