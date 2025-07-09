@@ -297,7 +297,8 @@ app.get('/api/export', (req, res) => {
 
 // Sert les fichiers statiques du build React
 app.use(express.static(path.join(__dirname, 'dist')));
-// Pour toute autre route, renvoie index.html (SPA)
+
+// --- Fallback SPA : doit être la DERNIÈRE route ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
