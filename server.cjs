@@ -200,21 +200,36 @@ function getBattlePayload() {
 
 // --- Paiement automatique des gains ---
 async function sendWinnings(winnerAddress, amount) {
-  const toPubkey = new PublicKey(winnerAddress);
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: POOL_WALLET,
-      toPubkey,
-      lamports: Math.floor(amount * LAMPORTS_PER_SOL)
-    })
-  );
-  tx.feePayer = POOL_WALLET;
-  const { blockhash } = await connection.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.sign(POOL_KEYPAIR);
-  const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig);
-  return sig;
+  try {
+    const toPubkey = new PublicKey(winnerAddress);
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: POOL_KEYPAIR.publicKey,
+        toPubkey,
+        lamports: Math.floor(amount * LAMPORTS_PER_SOL)
+      })
+    );
+    tx.feePayer = POOL_KEYPAIR.publicKey;
+    const { blockhash } = await connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    // S'assurer qu'aucune donnée n'est attachée au compte source
+    // et que la clé privée du pool est bien utilisée
+    tx.sign(POOL_KEYPAIR);
+    try {
+      const sig = await connection.sendRawTransaction(tx.serialize());
+      await connection.confirmTransaction(sig);
+      return sig;
+    } catch (err) {
+      // Si c'est une erreur de simulation, loguer les logs détaillés
+      if (err.logs) {
+        console.error('Simulation logs:', err.logs);
+      }
+      throw err;
+    }
+  } catch (e) {
+    console.error('Erreur dans sendWinnings:', e);
+    throw e;
+  }
 }
 
 // --- Socket.IO ---
