@@ -27,6 +27,16 @@ app.use(express.json());
 // Utilise l'API payout sécurisée
 app.use(payoutApi);
 
+// Endpoint de santé pour tester le déploiement
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend API running',
+    timestamp: new Date().toISOString(),
+    socket: 'Socket.IO ready'
+  });
+});
+
 // Socket.IO events
 io.on('connection', (socket) => {
   console.log('Client connecté:', socket.id);
