@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "security-check": "node check-security.cjs",
-    "server": "node server.cjs"
+    "server": "node server.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.27",
