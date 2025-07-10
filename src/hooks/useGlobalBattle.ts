@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Battle, ChatMessage } from '../types';
 import { useSolanaWallet } from './useSolanaWallet';
 
-const SOCKET_URL = import.meta.env.PROD ? undefined : 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.PROD ? 'https://bet1-oeah.onrender.com' : 'http://localhost:3001';
 
 // Ajoute une fonction utilitaire pour abréger les wallets
 function shortWallet(addr: string) {
@@ -45,13 +45,31 @@ export const useGlobalBattle = () => {
     socket.on('disconnect', () => setConnected(false));
 
     socket.on('battle_update', (payload) => {
-      setCurrentBattle(payload ? {
+      const previousBattle = currentBattle;
+      const newBattle = payload ? {
         ...payload,
         startTime: payload.startTime ? new Date(payload.startTime) : undefined,
         endTime: payload.endTime ? new Date(payload.endTime) : undefined
-      } : null);
+      } : null;
+      
+      setCurrentBattle(newBattle);
       setChatMessages(payload?.chatMessages || []);
       setConnectedUsers(payload?.participants || 0);
+
+      // Déclenche le payout automatique si la bataille vient de se terminer
+      if (previousBattle?.status === 'active' && newBattle?.status === 'finished' && newBattle?.winner) {
+        console.log('🏆 Bataille terminée, déclenchement du payout automatique...');
+        
+        // Simule un payout automatique pour le gagnant
+        // En production, ceci devrait être géré par le backend
+        if (user && user.fullAddress) {
+          // Déclenche le payout via Socket.IO
+          socket.emit('trigger_payout', {
+            winnerAddress: user.fullAddress,
+            amount: 0.1 // Montant de test
+          });
+        }
+      }
     });
     socket.on('participants', (count) => setConnectedUsers(count));
 
@@ -73,6 +91,33 @@ export const useGlobalBattle = () => {
         perte: data.success ? 0 : data.amount
       });
       localStorage.setItem(historyKey, JSON.stringify(history.slice(0, 20)));
+    });
+
+    // Écoute des événements de payout automatique
+    socket.on('payout_success', (data) => {
+      console.log('✅ Payout automatique réussi:', data);
+      // Ajoute un message de succès dans le chat
+      const successMessage = `💸 Payout automatique réussi: +${data.amount} SOL → ${shortWallet(data.winnerAddress)} (tx: ${data.signature.slice(0,5)}...${data.signature.slice(-4)})`;
+      setChatMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        user: 'System',
+        message: successMessage,
+        timestamp: new Date(),
+        type: 'system'
+      }]);
+    });
+
+    socket.on('payout_error', (error) => {
+      console.error('❌ Erreur payout automatique:', error);
+      // Ajoute un message d'erreur dans le chat
+      const errorMessage = `❌ Erreur payout automatique: ${error}`;
+      setChatMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        user: 'System',
+        message: errorMessage,
+        timestamp: new Date(),
+        type: 'system'
+      }]);
     });
 
     return () => {

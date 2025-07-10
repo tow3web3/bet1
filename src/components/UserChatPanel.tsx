@@ -3,7 +3,7 @@ import { MessageCircle, Send } from 'lucide-react';
 import { useSolanaWallet } from '../hooks/useSolanaWallet';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.PROD ? undefined : 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.PROD ? 'https://bet1-oeah.onrender.com' : 'http://localhost:3001';
 
 interface UserChatMessage {
   id: string;
