@@ -1,8 +1,16 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const payoutApi = require('./src/services/payoutApi');
 
 const app = express();
+
+// Middleware CORS pour permettre les appels depuis le front-end
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Utilise l'API payout sécurisée
