@@ -11,7 +11,7 @@ import bs58 from 'bs58';
 import { User } from '../types';
 
 // Adresse publique du pool (doit correspondre à celle du backend)
-const POOL_WALLET = new PublicKey('4MpnddXrsYGzCv6GBe6y39DWLpixqiTjW5nEpbaXffrq');
+const POOL_WALLET = new PublicKey('4NcJkBEb7MLY7S5fSCpjppjdPEBnqk5Xt4ZoKSweMqV3');
 
 export const useSolanaWallet = () => {
   const { publicKey, connected, disconnect, signTransaction } = useWallet();
