@@ -79,6 +79,90 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Event pour déclencher un payout automatique quand une bataille se termine
+  socket.on('battle_ended', async (data) => {
+    try {
+      const { winnerAddress, amount, battleId } = data;
+      console.log(`🏆 Bataille ${battleId} terminée, payout automatique pour ${winnerAddress}: ${amount} SOL`);
+      
+      // Appelle l'API payout
+      const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': '28082306Ab.'
+        },
+        body: JSON.stringify({
+          to: winnerAddress,
+          amount: amount
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Payout automatique réussi:', result.signature);
+        // Notifie TOUS les clients du succès
+        io.emit('payout_success', {
+          winnerAddress,
+          amount,
+          signature: result.signature,
+          battleId
+        });
+      } else {
+        console.error('❌ Erreur payout automatique:', result.error);
+        io.emit('payout_error', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Erreur payout automatique:', error);
+      io.emit('payout_error', error.message);
+    }
+  });
+
+  // Event pour déclencher un payout automatique quand une bataille se termine (version alternative)
+  socket.on('battle_finished', async (data) => {
+    try {
+      const { winnerAddress, amount, battleId, winnerName } = data;
+      console.log(`🏆 Bataille ${battleId} terminée, ${winnerName} gagne ${amount} SOL!`);
+      
+      // Appelle l'API payout automatiquement
+      const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': '28082306Ab.'
+        },
+        body: JSON.stringify({
+          to: winnerAddress,
+          amount: amount
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Payout automatique réussi:', result.signature);
+        // Notifie TOUS les clients du succès avec un message formaté
+        const successMessage = `🏆 ${winnerName} a gagné ${amount.toFixed(4)} SOL! (Payout automatique: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`;
+        io.emit('payout_success', {
+          winnerAddress,
+          amount,
+          signature: result.signature,
+          battleId,
+          message: successMessage
+        });
+      } else {
+        console.error('❌ Erreur payout automatique:', result.error);
+        const errorMessage = `❌ Erreur payout automatique: ${result.error}`;
+        io.emit('payout_error', errorMessage);
+      }
+    } catch (error) {
+      console.error('❌ Erreur payout automatique:', error);
+      const errorMessage = `❌ Erreur payout automatique: ${error.message}`;
+      io.emit('payout_error', errorMessage);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client déconnecté:', socket.id);
   });
