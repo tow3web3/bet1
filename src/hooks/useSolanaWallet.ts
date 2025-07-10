@@ -121,8 +121,13 @@ export const useSolanaWallet = () => {
 
   const sendWinnings = async (winnerAddress: string, amount: number): Promise<boolean> => {
     try {
+      // URL dynamique pour local et production
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://bet1-oeah.onrender.com/api/payout'
+        : 'http://localhost:3001/api/payout';
+      
       // Appelle l'API backend sécurisée pour effectuer le payout
-      const response = await fetch('/api/payout', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
