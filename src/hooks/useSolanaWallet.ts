@@ -9,7 +9,6 @@ import {
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { User } from '../types';
-import { securePayout } from '../services/securePayout';
 
 // Adresse publique du pool (doit correspondre à celle du backend)
 const POOL_WALLET = new PublicKey('4MpnddXrsYGzCv6GBe6y39DWLpixqiTjW5nEpbaXffrq');
@@ -122,10 +121,28 @@ export const useSolanaWallet = () => {
 
   const sendWinnings = async (winnerAddress: string, amount: number): Promise<boolean> => {
     try {
-      // Utilise le service sécurisé pour envoyer les gains
-      await securePayout(winnerAddress, amount);
-      console.log('Gains envoyés avec succès via securePayout');
-      return true;
+      // Appelle l'API backend sécurisée pour effectuer le payout
+      const response = await fetch('/api/payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': '28082306Ab.' // Clé d'API pour sécuriser l'endpoint
+        },
+        body: JSON.stringify({
+          to: winnerAddress,
+          amount: amount
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Gains envoyés avec succès via API backend:', data.signature);
+        return true;
+      } else {
+        console.error('Erreur lors de l\'envoi des gains:', data.error);
+        return false;
+      }
     } catch (error) {
       console.error('Erreur lors de l\'envoi des gains:', error);
       return false;
