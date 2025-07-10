@@ -13,7 +13,7 @@ function checkApiKey(req, res, next) {
 }
 
 // Endpoint sécurisé pour effectuer un payout
-router.post('/payout', checkApiKey, async (req, res) => {
+router.post('/api/payout', checkApiKey, async (req, res) => {
   const { to, amount } = req.body;
   if (!to || !amount || typeof to !== 'string' || typeof amount !== 'number') {
     return res.status(400).json({ error: 'Paramètres invalides' });

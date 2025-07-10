@@ -28,10 +28,10 @@ if (!envContent.includes('POOL_PRIVATE_KEY=')) {
   process.exit(1);
 }
 
-// 4. Vérifier que la clé privée n'est plus dans server.cjs
-const serverContent = fs.readFileSync('server.cjs', 'utf8');
+// 4. Vérifier que la clé privée n'est plus dans server.js
+const serverContent = fs.readFileSync('server.js', 'utf8');
 if (serverContent.includes('[64,243,245,223,49,250,236,150,242,84,230,44,25,105,133,216,125,177,153,22,115,111,247,59,224,45,91,105,173,219,189,34,49,232,181,169,33,223,10,206,84,244,215,182,89,51,181,78,9,60,59,185,127,232,114,78,101,0,191,54,210,231,139,18]')) {
-  console.error('❌ ERREUR: Clé privée encore hardcodée dans server.cjs');
+  console.error('❌ ERREUR: Clé privée encore hardcodée dans server.js');
   process.exit(1);
 }
 
@@ -50,7 +50,7 @@ console.log('✅ Clé privée sécurisée (plus de hardcode)');
 console.log('✅ Package dotenv installé');
 console.log('\n🎉 Configuration de sécurité validée !');
 console.log('\n📋 Prochaines étapes:');
-console.log('1. Démarrez le backend: node server.cjs');
+console.log('1. Démarrez le backend: node server.js');
 console.log('2. Démarrez le frontend: npm run dev');
 console.log('3. Testez sur http://localhost:5175');
 console.log('\n⚠️  Rappel: Ne partagez jamais le fichier .env !'); 

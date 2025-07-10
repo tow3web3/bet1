@@ -35,7 +35,7 @@ La clé privée du pool wallet est maintenant sécurisée dans un fichier `.env`
 
 3. Redémarrez le serveur :
    ```bash
-   node server.cjs
+   node server.js
    ```
 
 ### Vérification

@@ -13,7 +13,7 @@ npm run security-check
 ```bash
 npm run server
 # ou
-node server.cjs
+node server.js
 ```
 
 ### 3. Démarrage du Frontend
@@ -87,13 +87,13 @@ adada/
 │   ├── hooks/          # Hooks personnalisés
 │   ├── services/       # Services (GlobalBattle)
 │   └── types/          # Types TypeScript
-├── server.cjs          # Backend Node.js
+├── server.js          # Backend Node.js avec Socket.IO
 ├── .env               # Variables d'environnement (sécurisé)
 └── check-security.cjs # Script de vérification
 ```
 
 ### Ajout de Nouvelles Fonctionnalités
 1. Modifiez les composants React dans `src/components/`
-2. Ajoutez la logique backend dans `server.cjs`
+2. Ajoutez la logique backend dans `server.js`
 3. Testez avec `npm run security-check`
 4. Démarrez avec `npm run server` et `npm run dev` 
