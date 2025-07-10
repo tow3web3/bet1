@@ -38,8 +38,8 @@ function App() {
             <span className="text-xl md:text-2xl text-green-400 drop-shadow-neon font-bold tracking-widest animate-pulse">█▓▒⚡</span>
             <span className="text-lg md:text-xl font-bold text-green-300 drop-shadow-neon">Solana Battle Arena</span>
             <span className="ml-2 text-xs text-green-500/80 tracking-widest">[HACKER MODE]</span>
-          </div>
-          <div className="flex items-center space-x-2">
+            </div>
+              <div className="flex items-center space-x-2">
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
             <span className="text-green-200 text-xs">{connected ? `${connectedUsers} users` : 'Connecting...'}</span>
           </div>
@@ -78,11 +78,11 @@ function App() {
             connectedUsers={connectedUsers}
           />
           <div className="h-56">
-            <ChatPanel messages={chatMessages} onSendMessage={addChatMessage} />
+              <ChatPanel messages={chatMessages} onSendMessage={addChatMessage} />
           </div>
         </aside>
-      </div>
-
+            </div>
+            
       {/* Modal Profil/Statut ou Historique */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">

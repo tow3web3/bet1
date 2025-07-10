@@ -29,7 +29,7 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
       return;
     }
     
-    const betAmount = 0.1;
+    const betAmount = 0.02;
     
     if (user.balance < betAmount) {
       addChatMessage('❌ Solde insuffisant pour parier!', user.fullAddress || user.address);
@@ -53,11 +53,11 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
           globalPlaceBet(teamId, betAmount, user.fullAddress);
           // Message court de pari dans le chat combat
           addChatMessage('', user.fullAddress, 'bet', { amount: betAmount, teamName });
-          setSelectedTeam(teamId);
-          
-          // Effacer la sélection après 3 secondes
-          setTimeout(() => setSelectedTeam(null), 3000);
-                 } else {
+        setSelectedTeam(teamId);
+        
+        // Effacer la sélection après 3 secondes
+        setTimeout(() => setSelectedTeam(null), 3000);
+      } else {
            addChatMessage('❌ Erreur: adresse wallet invalide', user.fullAddress || user.address);
          }
       } else {
@@ -151,10 +151,10 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
         <BattleTimer battle={battle} />
       </div>
       {/* Avertissement pour solde insuffisant */}
-      {user && user.balance < 0.1 && battle.status === 'active' && (
+      {user && user.balance < 0.02 && battle.status === 'active' && (
         <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded flex items-center space-x-2">
           <AlertCircle className="w-4 h-4 text-red-400" />
-          <p className="text-red-400 text-xs">Solde insuffisant. 0.1 SOL min.</p>
+          <p className="text-red-400 text-xs">Solde insuffisant. 0.02 SOL min.</p>
         </div>
       )}
       {/* Equipes */}
@@ -182,10 +182,10 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
               {battle.status === 'active' && user && (
                 <button
                   onClick={() => handleBet(team.id, team.name)}
-                  disabled={betting || selectedTeam === team.id || user.balance < 0.1 || hasAlreadyBet}
-                  className={`w-full py-2 rounded font-bold text-xs transition-all duration-300 ${selectedTeam === team.id ? 'bg-green-500 text-white shadow-neon-green' : user.balance < 0.1 || hasAlreadyBet ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed' : 'bg-black/30 hover:bg-green-500/20 text-green-200 hover:scale-105 shadow-neon-green'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  disabled={betting || selectedTeam === team.id || user.balance < 0.02 || hasAlreadyBet}
+                  className={`w-full py-2 rounded font-bold text-xs transition-all duration-300 ${selectedTeam === team.id ? 'bg-green-500 text-white shadow-neon-green' : user.balance < 0.02 || hasAlreadyBet ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed' : 'bg-black/30 hover:bg-green-500/20 text-green-200 hover:scale-105 shadow-neon-green'} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {hasAlreadyBet ? 'Pari déjà placé' : selectedTeam === team.id ? '✓ Pari Placé!' : betting ? 'Traitement...' : user.balance < 0.1 ? 'Solde Insuffisant' : 'Parier 0.1 SOL'}
+                  {hasAlreadyBet ? 'Pari déjà placé' : selectedTeam === team.id ? '✓ Pari Placé!' : betting ? 'Traitement...' : user.balance < 0.02 ? 'Solde Insuffisant' : 'Parier 0.02 SOL'}
                 </button>
               )}
               {!user && battle.status === 'active' && (

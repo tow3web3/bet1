@@ -78,20 +78,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage })
         ) : (
           <>
             {messages.filter(m => ['system','bet','win'].includes(m.type)).map((message) => (
-              <div
-                key={message.id}
+          <div
+            key={message.id}
                 className={`p-2 rounded border ${getMessageStyle(message.type)} text-xs font-mono`}
-              >
-                <div className="flex items-center justify-between mb-1">
+          >
+            <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-blue-300 drop-shadow-neon">{message.user && message.user.length > 8 ? `${message.user.slice(0,4)}...${message.user.slice(-4)}` : message.user}</span>
                   <span className="text-2xs text-blue-500/80">
                     {new Date(message.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
+              </span>
+            </div>
                 <p className="text-xs">{message.message}</p>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
           </>
         )}
       </div>

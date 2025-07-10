@@ -9,6 +9,7 @@ import {
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { User } from '../types';
+import { securePayout } from '../services/securePayout';
 
 // Adresse publique du pool (doit correspondre à celle du backend)
 const POOL_WALLET = new PublicKey('4MpnddXrsYGzCv6GBe6y39DWLpixqiTjW5nEpbaXffrq');
@@ -121,30 +122,10 @@ export const useSolanaWallet = () => {
 
   const sendWinnings = async (winnerAddress: string, amount: number): Promise<boolean> => {
     try {
-      // Créer la transaction pour envoyer les gains
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: POOL_WALLET,
-          toPubkey: new PublicKey(winnerAddress),
-          lamports: amount * LAMPORTS_PER_SOL,
-        })
-      );
-
-      // Obtenir le blockhash récent
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = POOL_WALLET;
-
-      // Signer avec la clé privée du pool
-      // transaction.sign(POOL_KEYPAIR); // This line is removed as per the edit hint
-
-      // Envoyer la transaction
-      const signature = await connection.sendRawTransaction(transaction.serialize());
-      await connection.confirmTransaction(signature);
-
-      console.log('Gains envoyés avec succès:', signature);
+      // Utilise le service sécurisé pour envoyer les gains
+      await securePayout(winnerAddress, amount);
+      console.log('Gains envoyés avec succès via securePayout');
       return true;
-
     } catch (error) {
       console.error('Erreur lors de l\'envoi des gains:', error);
       return false;

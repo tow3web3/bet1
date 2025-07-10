@@ -13,7 +13,7 @@ export const RealWalletConnection: React.FC = () => {
       <div className="fixed bottom-4 right-4 z-50 bg-black/90 p-2 rounded-xl border border-green-400/30 shadow-neon-green font-mono flex items-center space-x-2 cursor-pointer">
         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded flex items-center justify-center shadow-neon-green">
           <Wallet className="w-5 h-5 text-green-200" />
-        </div>
+          </div>
         <span className="text-green-200 text-xs font-mono">Non connecté</span>
         <div className="wallet-adapter-button-trigger ml-2">
           <WalletMultiButton className="!bg-gradient-to-r !from-green-500 !to-blue-500 hover:!from-green-600 hover:!to-blue-600 !text-white !px-3 !py-1 !rounded !font-semibold !transition-all !duration-300 !transform hover:!scale-105 !text-xs font-mono" />

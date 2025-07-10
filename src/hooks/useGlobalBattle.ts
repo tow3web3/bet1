@@ -18,7 +18,7 @@ function formatCombatMessage(type: string, data: any) {
       // ex: 💸 +0.20 SOL → 4Mp...ffrq (tx: 3TKb...SjDm)
       return `💸 +${data.amount?.toFixed(2)} SOL → ${shortWallet(data.user)}${data.tx ? ` (tx: ${data.tx.slice(0,5)}...${data.tx.slice(-4)})` : ''}`;
     case 'bet':
-      // ex: 💎 4Mp...ffrq parie 0.1 SOL sur Aigles !
+      // ex: 💎 4Mp...ffrq parie 0.02 SOL sur Aigles !
       return `💎 ${shortWallet(data.user)} parie ${data.amount?.toFixed(2)} SOL sur ${data.teamName || data.team || ''}`;
     case 'system':
       // ex: 🏆 Aigles gagnent !

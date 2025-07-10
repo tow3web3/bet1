@@ -219,7 +219,7 @@ export const GameHistory: React.FC<GameHistoryProps> = ({ initialTab }) => {
             <div>Total Pool : <span className="font-bold text-yellow-400">{globalPool.toFixed(2)} SOL</span></div>
             <div>Total Participants : <span className="font-bold text-blue-400">{globalParticipants}</span></div>
           </div>
-          <div className="space-y-4">
+      <div className="space-y-4">
             {globalHistory.length === 0 ? (
               <div className="text-center text-purple-300 text-sm py-8">
                 <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -229,39 +229,39 @@ export const GameHistory: React.FC<GameHistoryProps> = ({ initialTab }) => {
             ) : (
               globalHistory.map((game, idx) => (
                 <div key={game.id || idx} className="bg-black/20 rounded-lg p-4 border border-purple-500/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <Trophy className="w-5 h-5 text-yellow-400" />
-                      <span className="text-white font-semibold">{game.winner}</span>
-                    </div>
-                    <span className="text-gray-400 text-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <span className="text-white font-semibold">{game.winner}</span>
+              </div>
+              <span className="text-gray-400 text-sm">
                       {game.endTime ? new Date(game.endTime).toLocaleTimeString() : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-1">
-                        <Users className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-400 text-sm">{game.participants}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Coins className="w-4 h-4 text-yellow-400" />
-                        <span className="text-yellow-400 text-sm">{game.totalPool?.toFixed(2)} SOL</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
-                      <span>{game.teams?.[0]?.avatar} {game.teams?.[0]?.name}</span>
-                      <span className="text-gray-400">vs</span>
-                      <span>{game.teams?.[1]?.avatar} {game.teams?.[1]?.name}</span>
-                    </div>
-                  </div>
+              </span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-1">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span className="text-blue-400 text-sm">{game.participants}</span>
                 </div>
+                <div className="flex items-center space-x-1">
+                  <Coins className="w-4 h-4 text-yellow-400" />
+                        <span className="text-yellow-400 text-sm">{game.totalPool?.toFixed(2)} SOL</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-2">
+                      <span>{game.teams?.[0]?.avatar} {game.teams?.[0]?.name}</span>
+                <span className="text-gray-400">vs</span>
+                      <span>{game.teams?.[1]?.avatar} {game.teams?.[1]?.name}</span>
+              </div>
+            </div>
+          </div>
               ))
             )}
             <div ref={messagesEndRef} />
-          </div>
+      </div>
         </>
       )}
     </div>
