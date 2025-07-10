@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const payoutApi = require('./src/services/payoutApi');
@@ -24,8 +25,8 @@ app.use(cors({
 
 app.use(express.json());
 
-// Utilise l'API payout sécurisée
-app.use(payoutApi);
+// Utilise l'API payout sécurisée sur /api
+app.use('/api', payoutApi);
 
 // Endpoint de santé pour tester le déploiement
 app.get('/api/health', (req, res) => {
@@ -166,6 +167,14 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client déconnecté:', socket.id);
   });
+});
+
+// Servir le frontend buildé
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Route fallback pour SPA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Gestion d'erreur globale
