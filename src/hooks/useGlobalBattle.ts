@@ -35,29 +35,51 @@ export const useGlobalBattle = () => {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const { user } = useSolanaWallet();
+  const connectingRef = useRef(false);
 
   useEffect(() => {
+    // Éviter les connexions multiples
+    if (connectingRef.current || socketRef.current?.connected) {
+      return;
+    }
+
+    connectingRef.current = true;
     console.log('[SOCKET] Tentative de connexion à:', SOCKET_URL);
+    
     // Crée la connexion socket.io avec polling forcé pour Render
     const socket = SOCKET_URL ? io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
-      forceNew: true
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     }) : io({
       transports: ['polling', 'websocket'],
-      forceNew: true
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
+    
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('[SOCKET] ✅ Connecté au serveur');
       setConnected(true);
+      connectingRef.current = false;
     });
+    
     socket.on('disconnect', () => {
       console.log('[SOCKET] ❌ Déconnecté du serveur');
       setConnected(false);
+      connectingRef.current = false;
     });
+    
     socket.on('connect_error', (error) => {
       console.error('[SOCKET] ❌ Erreur de connexion:', error);
+      connectingRef.current = false;
     });
 
     socket.on('battle_update', (payload) => {
@@ -90,10 +112,12 @@ export const useGlobalBattle = () => {
         });
       }
     });
+    
     socket.on('participants', (count) => {
       console.log('[SOCKET] 👥 Participants:', count);
       setConnectedUsers(count);
     });
+    
     socket.on('chat_message', (message) => {
       console.log('[SOCKET] 💬 Message reçu:', message);
     });
@@ -130,7 +154,11 @@ export const useGlobalBattle = () => {
 
     return () => {
       console.log('[SOCKET] 🔌 Déconnexion du socket');
-      socket.disconnect();
+      connectingRef.current = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, [user]); // Retiré currentBattle des dépendances pour éviter les reconnexions
 

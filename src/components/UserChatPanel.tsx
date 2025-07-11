@@ -18,20 +18,48 @@ const UserChatPanel: React.FC = () => {
   const [input, setInput] = useState('');
   const socketRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const connectingRef = useRef(false);
 
   useEffect(() => {
+    // Éviter les connexions multiples
+    if (connectingRef.current || socketRef.current?.connected) {
+      return;
+    }
+
+    connectingRef.current = true;
     console.log('[USERCHAT] Tentative de connexion à:', SOCKET_URL);
-    const socket = SOCKET_URL ? io(SOCKET_URL) : io();
+    
+    const socket = SOCKET_URL ? io(SOCKET_URL, {
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    }) : io({
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+    
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('[USERCHAT] ✅ Connecté au serveur');
+      connectingRef.current = false;
     });
+    
     socket.on('disconnect', () => {
       console.log('[USERCHAT] ❌ Déconnecté du serveur');
+      connectingRef.current = false;
     });
+    
     socket.on('connect_error', (error) => {
       console.error('[USERCHAT] ❌ Erreur de connexion:', error);
+      connectingRef.current = false;
     });
 
     socket.on('user_chat_message', (msg: UserChatMessage) => {
@@ -41,7 +69,11 @@ const UserChatPanel: React.FC = () => {
 
     return () => {
       console.log('[USERCHAT] 🔌 Déconnexion du socket');
-      socket.disconnect();
+      connectingRef.current = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, []);
 
