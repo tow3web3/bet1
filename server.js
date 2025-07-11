@@ -219,6 +219,7 @@ app.get('/api/history', (req, res) => {
 // Endpoint pour placer un pari
 app.post('/api/bet', (req, res) => {
   const { teamId, amount, userAddress } = req.body;
+  console.log('[API/BET] Pari reçu :', { teamId, amount, userAddress });
   
   if (!teamId || !amount || !userAddress) {
     return res.status(400).json({ error: 'Données manquantes' });
@@ -234,6 +235,7 @@ app.post('/api/bet', (req, res) => {
     
     // Ajouter le pari à la liste des bets
     currentBattle.bets.push({ teamId, amount, userAddress });
+    console.log('[API/BET] Paris enregistrés après ajout :', JSON.stringify(currentBattle.bets, null, 2));
 
     // Ajouter un message de chat pour le pari
     const betMessage = {
