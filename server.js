@@ -285,7 +285,7 @@ io.on('connection', (socket) => {
   socket.on('place_bet', (data) => {
     console.log('[SOCKET/BET] Pari reçu via socket.io :', data);
     currentBattle.bets.push({ teamId: data.teamId, amount: data.amount, userAddress: data.userAddress });
-    console.log('Pari placé:', data);
+    console.log('[SOCKET/BET] Paris enregistrés après ajout (socket.io) :', JSON.stringify(currentBattle.bets, null, 2));
     
     // Mettre à jour les stats de l'équipe
     const team = currentBattle.teams.find(t => t.id === data.teamId);

@@ -62,17 +62,14 @@ export const useGlobalBattle = () => {
       setChatMessages(payload?.chatMessages || []);
       setConnectedUsers(payload?.participants || 0);
 
-      // Déclenche le payout automatique si la bataille vient de se terminer
-      if (previousBattle?.status === 'active' && newBattle?.status === 'finished' && newBattle?.winner) {
-        console.log('🏆 Bataille terminée, déclenchement du payout automatique...');
-        
+      // Déclenche le payout automatique UNIQUEMENT si le statut passe de 'active' à 'finished'
+      if (previousBattle && previousBattle.status === 'active' && newBattle && newBattle.status === 'finished' && newBattle.winner) {
+        console.log('[FRONT] Emission de battle_finished pour payout automatique');
         // Trouve l'équipe gagnante
         const winnerTeam = newBattle.teams.find((team: any) => team.id === newBattle.winner);
         const winnerName = winnerTeam?.name || 'Équipe gagnante';
-        
         // Calcule le montant du payout (simulation)
         const payoutAmount = newBattle.totalPool > 0 ? newBattle.totalPool / Math.max(1, winnerTeam?.bets || 1) : 0.04;
-        
         // Déclenche le payout automatique via Socket.IO
         socket.emit('battle_finished', {
           winnerAddress: user?.fullAddress || '4NcJkBEb7MLY7S5fSCpjppjdPEBnqk5Xt4ZoKSweMqV3', // Fallback si pas d'utilisateur
