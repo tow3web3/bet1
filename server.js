@@ -252,6 +252,12 @@ io.on('connection', (socket) => {
     io.emit('chat_message', chatMessage);
   });
 
+  // Gestion du chat utilisateurs (UserChatPanel)
+  socket.on('user_chat_message', (msg) => {
+    // Optionnel : filtrer ou valider le message ici
+    io.emit('user_chat_message', msg); // Broadcast à tous les clients
+  });
+
   // Event pour déclencher un payout automatique
   socket.on('trigger_payout', async (data) => {
     try {
