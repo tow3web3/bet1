@@ -91,8 +91,10 @@ function startNewBattle() {
 
       // Payout équitable à tous les gagnants (version async/await + logs)
       console.log('[PAYOUT] Début de la distribution des gains...');
+      console.log('[PAYOUT] Paris enregistrés (currentBattle.bets) :', JSON.stringify(currentBattle.bets, null, 2));
       (async () => {
         const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
+        console.log('[PAYOUT] Paris gagnants (winningBets) :', JSON.stringify(winningBets, null, 2));
         if (winningBets.length > 0) {
           const payoutPerWinner = currentBattle.totalPool / winningBets.length;
           let payoutSuccess = 0;
