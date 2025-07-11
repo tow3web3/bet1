@@ -1,35 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { useSolanaWallet } from '../hooks/useSolanaWallet';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.PROD ? 'https://bet1-oeah.onrender.com' : 'http://localhost:3001';
 
-interface UserChatMessage {
-  id: string;
-  user: string;
-  message: string;
-  timestamp: string;
-}
+// Singleton Socket.IO pour UserChatPanel
+let userChatSocket: Socket | null = null;
 
-const UserChatPanel: React.FC = () => {
-  const { user } = useSolanaWallet();
-  const [messages, setMessages] = useState<UserChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const socketRef = useRef<any>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const connectingRef = useRef(false);
-
-  useEffect(() => {
-    // Éviter les connexions multiples
-    if (connectingRef.current || socketRef.current?.connected) {
-      return;
-    }
-
-    connectingRef.current = true;
-    console.log('[USERCHAT] Tentative de connexion à:', SOCKET_URL);
-    
-    const socket = SOCKET_URL ? io(SOCKET_URL, {
+const getUserChatSocket = () => {
+  if (!userChatSocket) {
+    console.log('[USERCHAT] Création du socket global');
+    userChatSocket = SOCKET_URL ? io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
       forceNew: true,
       timeout: 20000,
@@ -44,23 +26,37 @@ const UserChatPanel: React.FC = () => {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
-    
-    socketRef.current = socket;
 
-    socket.on('connect', () => {
-      console.log('[USERCHAT] ✅ Connecté au serveur');
-      connectingRef.current = false;
+    userChatSocket.on('connect', () => {
+      console.log('[USERCHAT] ✅ Connecté au serveur (global)');
     });
-    
-    socket.on('disconnect', () => {
-      console.log('[USERCHAT] ❌ Déconnecté du serveur');
-      connectingRef.current = false;
+
+    userChatSocket.on('disconnect', () => {
+      console.log('[USERCHAT] ❌ Déconnecté du serveur (global)');
     });
-    
-    socket.on('connect_error', (error) => {
-      console.error('[USERCHAT] ❌ Erreur de connexion:', error);
-      connectingRef.current = false;
+
+    userChatSocket.on('connect_error', (error) => {
+      console.error('[USERCHAT] ❌ Erreur de connexion (global):', error);
     });
+  }
+  return userChatSocket;
+};
+
+interface UserChatMessage {
+  id: string;
+  user: string;
+  message: string;
+  timestamp: string;
+}
+
+const UserChatPanel: React.FC = () => {
+  const { user } = useSolanaWallet();
+  const [messages, setMessages] = useState<UserChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const socket = getUserChatSocket();
 
     socket.on('user_chat_message', (msg: UserChatMessage) => {
       console.log('[USERCHAT] 💬 Message reçu:', msg);
@@ -68,12 +64,7 @@ const UserChatPanel: React.FC = () => {
     });
 
     return () => {
-      console.log('[USERCHAT] 🔌 Déconnexion du socket');
-      connectingRef.current = false;
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      socket.off('user_chat_message');
     };
   }, []);
 
@@ -91,7 +82,7 @@ const UserChatPanel: React.FC = () => {
       message: input.trim(),
       timestamp: new Date().toISOString(),
     };
-    socketRef.current.emit('user_chat_message', msg);
+    getUserChatSocket()?.emit('user_chat_message', msg);
     setInput('');
   };
 

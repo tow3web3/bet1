@@ -5,6 +5,45 @@ import { useSolanaWallet } from './useSolanaWallet';
 
 const SOCKET_URL = import.meta.env.PROD ? 'https://bet1-oeah.onrender.com' : 'http://localhost:3001';
 
+// Singleton Socket.IO pour éviter les connexions multiples
+let globalSocket: Socket | null = null;
+let socketListeners: Set<(data: any) => void> = new Set();
+
+// Fonction pour obtenir ou créer le socket global
+const getGlobalSocket = () => {
+  if (!globalSocket) {
+    console.log('[SOCKET] Création du socket global');
+    globalSocket = SOCKET_URL ? io(SOCKET_URL, {
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    }) : io({
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    globalSocket.on('connect', () => {
+      console.log('[SOCKET] ✅ Connecté au serveur (global)');
+    });
+
+    globalSocket.on('disconnect', () => {
+      console.log('[SOCKET] ❌ Déconnecté du serveur (global)');
+    });
+
+    globalSocket.on('connect_error', (error) => {
+      console.error('[SOCKET] ❌ Erreur de connexion (global):', error);
+    });
+  }
+  return globalSocket;
+};
+
 // Ajoute une fonction utilitaire pour abréger les wallets
 function shortWallet(addr: string) {
   if (!addr) return '';
@@ -33,54 +72,19 @@ export const useGlobalBattle = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [connectedUsers, setConnectedUsers] = useState(0);
   const [connected, setConnected] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
   const { user } = useSolanaWallet();
-  const connectingRef = useRef(false);
 
   useEffect(() => {
-    // Éviter les connexions multiples
-    if (connectingRef.current || socketRef.current?.connected) {
-      return;
-    }
-
-    connectingRef.current = true;
-    console.log('[SOCKET] Tentative de connexion à:', SOCKET_URL);
+    const socket = getGlobalSocket();
     
-    // Crée la connexion socket.io avec polling forcé pour Render
-    const socket = SOCKET_URL ? io(SOCKET_URL, {
-      transports: ['polling', 'websocket'],
-      forceNew: true,
-      timeout: 20000,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    }) : io({
-      transports: ['polling', 'websocket'],
-      forceNew: true,
-      timeout: 20000,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
+    // Mettre à jour l'état de connexion
+    setConnected(socket.connected);
     
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('[SOCKET] ✅ Connecté au serveur');
-      setConnected(true);
-      connectingRef.current = false;
-    });
+    const handleConnect = () => setConnected(true);
+    const handleDisconnect = () => setConnected(false);
     
-    socket.on('disconnect', () => {
-      console.log('[SOCKET] ❌ Déconnecté du serveur');
-      setConnected(false);
-      connectingRef.current = false;
-    });
-    
-    socket.on('connect_error', (error) => {
-      console.error('[SOCKET] ❌ Erreur de connexion:', error);
-      connectingRef.current = false;
-    });
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
 
     socket.on('battle_update', (payload) => {
       console.log('[SOCKET] 📡 Reçu battle_update:', payload);
@@ -153,29 +157,31 @@ export const useGlobalBattle = () => {
     });
 
     return () => {
-      console.log('[SOCKET] 🔌 Déconnexion du socket');
-      connectingRef.current = false;
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('battle_update');
+      socket.off('participants');
+      socket.off('chat_message');
+      socket.off('payout_result');
+      socket.off('payout_success');
+      socket.off('payout_error');
     };
   }, [user]); // Retiré currentBattle des dépendances pour éviter les reconnexions
 
   const placeBet = useCallback((teamId: string, amount: number, userAddress: string) => {
-    if (!socketRef.current) return;
-    socketRef.current.emit('place_bet', { teamId, amount, userAddress });
+    if (!globalSocket) return;
+    globalSocket.emit('place_bet', { teamId, amount, userAddress });
   }, []);
 
   // Remplace addChatMessage pour utiliser le format court
   const addChatMessage = useCallback((message: string, userAddress: string, type: string = 'system', extra?: any) => {
-    if (!socketRef.current) return;
+    if (!globalSocket) return;
     // Compose le message court si type connu
     let msg = message;
     if (['win','bet','system'].includes(type)) {
       msg = formatCombatMessage(type, { ...extra, user: userAddress, message });
     }
-    socketRef.current.emit('chat_message', { message: msg, userAddress, type });
+    globalSocket.emit('chat_message', { message: msg, userAddress, type });
   }, []);
 
   return {
