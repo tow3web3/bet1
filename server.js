@@ -93,14 +93,16 @@ function startNewBattle() {
       console.log('[PAYOUT] Début de la distribution des gains...');
       console.log('[PAYOUT] Paris enregistrés (currentBattle.bets) :', JSON.stringify(currentBattle.bets, null, 2));
       (async () => {
+        // Filtrer les parieurs uniques de la team gagnante
         const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
-        console.log('[PAYOUT] Paris gagnants (winningBets) :', JSON.stringify(winningBets, null, 2));
-        if (winningBets.length > 0) {
-          const payoutPerWinner = currentBattle.totalPool / winningBets.length;
+        const uniqueWinners = Array.from(new Set(winningBets.map(bet => bet.userAddress)));
+        console.log('[PAYOUT] Wallets gagnants uniques :', uniqueWinners);
+        if (uniqueWinners.length > 0) {
+          const payoutPerWinner = currentBattle.totalPool / uniqueWinners.length;
           let payoutSuccess = 0;
-          for (const bet of winningBets) {
+          for (const userAddress of uniqueWinners) {
             try {
-              console.log(`[PAYOUT] Tentative d'envoi à ${bet.userAddress} pour ${payoutPerWinner} SOL`);
+              console.log(`[PAYOUT] Tentative d'envoi à ${userAddress} pour ${payoutPerWinner} SOL`);
               const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
                 method: 'POST',
                 headers: {
@@ -108,7 +110,7 @@ function startNewBattle() {
                   'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
                 },
                 body: JSON.stringify({
-                  to: bet.userAddress,
+                  to: userAddress,
                   amount: payoutPerWinner
                 })
               });
@@ -118,36 +120,36 @@ function startNewBattle() {
                 const msg = {
                   id: Date.now().toString(),
                   user: 'System',
-                  message: `💸 Payout: +${payoutPerWinner.toFixed(4)} SOL → ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
+                  message: `💸 Payout: +${payoutPerWinner.toFixed(4)} SOL → ${userAddress.slice(0,4)}...${userAddress.slice(-4)} (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
                   timestamp: new Date(),
                   type: 'system'
                 };
                 currentBattle.chatMessages.push(msg);
                 io.emit('chat_message', msg);
-                console.log(`[PAYOUT] Succès pour ${bet.userAddress}`);
+                console.log(`[PAYOUT] Succès pour ${userAddress}`);
               } else {
                 const msg = {
                   id: Date.now().toString(),
                   user: 'System',
-                  message: `❌ Payout échoué pour ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${result.error}`,
+                  message: `❌ Payout échoué pour ${userAddress.slice(0,4)}...${userAddress.slice(-4)}: ${result.error}`,
                   timestamp: new Date(),
                   type: 'system'
                 };
                 currentBattle.chatMessages.push(msg);
                 io.emit('chat_message', msg);
-                console.error(`[PAYOUT] Échec pour ${bet.userAddress}: ${result.error}`);
+                console.error(`[PAYOUT] Échec pour ${userAddress}: ${result.error}`);
               }
             } catch (error) {
               const msg = {
                 id: Date.now().toString(),
                 user: 'System',
-                message: `❌ Payout erreur réseau pour ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${error.message}`,
+                message: `❌ Payout erreur réseau pour ${userAddress.slice(0,4)}...${userAddress.slice(-4)}: ${error.message}`,
                 timestamp: new Date(),
                 type: 'system'
               };
               currentBattle.chatMessages.push(msg);
               io.emit('chat_message', msg);
-              console.error(`[PAYOUT] Erreur réseau pour ${bet.userAddress}:`, error);
+              console.error(`[PAYOUT] Erreur réseau pour ${userAddress}:`, error);
             }
           }
           if (payoutSuccess === 0) {
