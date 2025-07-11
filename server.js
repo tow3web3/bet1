@@ -342,6 +342,12 @@ io.on('connection', (socket) => {
   socket.on('battle_finished', async (data) => {
     try {
       const { winnerAddress, amount, battleId, winnerName } = data;
+      if (!amount || amount <= 0) {
+        // Aucun payout à faire
+        const infoMessage = `Aucun payout automatique : aucun pari n'a été placé pour ce combat.`;
+        io.emit('payout_info', infoMessage);
+        return;
+      }
       console.log(`🏆 Bataille ${battleId} terminée, ${winnerName} gagne ${amount} SOL!`);
       
       // Appelle l'API payout automatiquement
