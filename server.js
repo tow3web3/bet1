@@ -47,13 +47,40 @@ function startNewBattle() {
   // Démarrer la bataille après 30 secondes
   setTimeout(() => {
     currentBattle.status = 'active';
+    
+    // Ajouter un message système
+    const startMessage = {
+      id: Date.now().toString(),
+      user: 'System',
+      message: '🏆 COMBAT COMMENCE ! Placez vos paris !',
+      timestamp: new Date(),
+      type: 'system'
+    };
+    currentBattle.chatMessages.push(startMessage);
+    
     io.emit('battle_update', currentBattle);
+    io.emit('chat_message', startMessage);
     
     // Terminer la bataille après 1 minute
     setTimeout(() => {
       currentBattle.status = 'finished';
       currentBattle.winner = Math.random() > 0.5 ? 'team1' : 'team2';
+      
+      // Trouver l'équipe gagnante
+      const winnerTeam = currentBattle.teams.find(t => t.id === currentBattle.winner);
+      
+      // Ajouter un message de victoire
+      const winMessage = {
+        id: Date.now().toString(),
+        user: 'System',
+        message: `🏆 ${winnerTeam?.name} GAGNE ! Payout automatique en cours...`,
+        timestamp: new Date(),
+        type: 'win'
+      };
+      currentBattle.chatMessages.push(winMessage);
+      
       io.emit('battle_update', currentBattle);
+      io.emit('chat_message', winMessage);
       
       // Démarrer une nouvelle bataille après 10 secondes
       setTimeout(startNewBattle, 10000);
@@ -108,6 +135,11 @@ io.on('connection', (socket) => {
   // Mettre à jour le nombre de participants
   currentBattle.participants = io.engine.clientsCount;
   io.emit('participants', currentBattle.participants);
+  
+  // Envoyer les messages de chat existants
+  if (currentBattle.chatMessages.length > 0) {
+    socket.emit('chat_messages', currentBattle.chatMessages);
+  }
 
   // Gestion des batailles globales
   socket.on('place_bet', (data) => {
@@ -121,8 +153,19 @@ io.on('connection', (socket) => {
       currentBattle.totalPool += data.amount;
       currentBattle.participants = io.engine.clientsCount;
       
+      // Ajouter un message de chat pour le pari
+      const betMessage = {
+        id: Date.now().toString(),
+        user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
+        message: `💎 Pari ${data.amount} SOL sur ${team.name}`,
+        timestamp: new Date(),
+        type: 'bet'
+      };
+      currentBattle.chatMessages.push(betMessage);
+      
       // Broadcast la mise à jour
       io.emit('battle_update', currentBattle);
+      io.emit('chat_message', betMessage);
     }
     
     // Broadcast à tous les clients
@@ -132,14 +175,26 @@ io.on('connection', (socket) => {
   // Gestion des messages de chat
   socket.on('chat_message', (data) => {
     console.log('Message chat:', data);
-    // Broadcast à tous les clients
-    io.emit('chat_message', {
+    
+    // Créer le message formaté
+    const chatMessage = {
       id: Date.now().toString(),
       user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
       message: data.message,
       timestamp: new Date(),
       type: data.type || 'system'
-    });
+    };
+    
+    // Ajouter au chat global
+    currentBattle.chatMessages.push(chatMessage);
+    
+    // Garder seulement les 50 derniers messages
+    if (currentBattle.chatMessages.length > 50) {
+      currentBattle.chatMessages = currentBattle.chatMessages.slice(-50);
+    }
+    
+    // Broadcast à tous les clients
+    io.emit('chat_message', chatMessage);
   });
 
   // Event pour déclencher un payout automatique
