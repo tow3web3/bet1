@@ -302,4 +302,16 @@ io.on('connection', (socket) => {
       // Ajouter un message de chat pour le pari
       const betMessage = {
         id: Date.now().toString(),
-        user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}`
+        user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
+        message: `💎 Pari ${data.amount} SOL sur ${team.name}`,
+        timestamp: new Date(),
+        type: 'bet'
+      };
+      currentBattle.chatMessages.push(betMessage);
+      
+      // Broadcast la mise à jour
+      io.emit('battle_update', currentBattle);
+      io.emit('chat_message', betMessage);
+    }
+  });
+});
