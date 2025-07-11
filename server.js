@@ -28,6 +28,9 @@ let currentBattle = {
 // Historique global des batailles (en mémoire)
 let globalBattleHistory = [];
 
+// Leaderboard global des gains (en mémoire)
+let leaderboard = {};
+
 // Fonction pour démarrer une nouvelle bataille
 function startNewBattle() {
   // Conserver les 30 derniers messages du chat précédent
@@ -208,6 +211,15 @@ app.get('/api/history', (req, res) => {
   res.json(globalBattleHistory);
 });
 
+// Endpoint pour le leaderboard global
+app.get('/api/leaderboard', (req, res) => {
+  // Transforme l'objet en tableau trié
+  const sorted = Object.entries(leaderboard)
+    .map(([wallet, totalGains]) => ({ wallet, totalGains }))
+    .sort((a, b) => b.totalGains - a.totalGains);
+  res.json(sorted);
+});
+
 // Endpoint pour placer un pari
 app.post('/api/bet', (req, res) => {
   const { teamId, amount, userAddress } = req.body;
@@ -290,196 +302,4 @@ io.on('connection', (socket) => {
       // Ajouter un message de chat pour le pari
       const betMessage = {
         id: Date.now().toString(),
-        user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
-        message: `💎 Pari ${data.amount} SOL sur ${team.name}`,
-        timestamp: new Date(),
-        type: 'bet'
-      };
-      currentBattle.chatMessages.push(betMessage);
-      
-      // Broadcast la mise à jour
-      io.emit('battle_update', currentBattle);
-      io.emit('chat_message', betMessage);
-    }
-    
-    // Broadcast à tous les clients
-    io.emit('bet_placed', data);
-  });
-
-  // Gestion des messages de chat
-  socket.on('chat_message', (data) => {
-    console.log('Message chat:', data);
-    
-    // Créer le message formaté
-    const chatMessage = {
-      id: Date.now().toString(),
-      user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
-      message: data.message,
-      timestamp: new Date(),
-      type: data.type || 'system'
-    };
-    
-    // Ajouter au chat global
-    currentBattle.chatMessages.push(chatMessage);
-    
-    // Garder seulement les 50 derniers messages
-    if (currentBattle.chatMessages.length > 50) {
-      currentBattle.chatMessages = currentBattle.chatMessages.slice(-50);
-    }
-    
-    // Broadcast à tous les clients
-    io.emit('chat_message', chatMessage);
-  });
-
-  // Gestion du chat utilisateurs (UserChatPanel)
-  socket.on('user_chat_message', (msg) => {
-    // Optionnel : filtrer ou valider le message ici
-    io.emit('user_chat_message', msg); // Broadcast à tous les clients
-  });
-
-  // Event pour déclencher un payout automatique
-  socket.on('trigger_payout', async (data) => {
-    try {
-      const { winnerAddress, amount } = data;
-      
-      // Appelle l'API payout
-      const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': '28082306Ab.'
-        },
-        body: JSON.stringify({
-          to: winnerAddress,
-          amount: amount
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('Payout automatique réussi:', result.signature);
-        // Notifie le front-end du succès
-        socket.emit('payout_success', {
-          winnerAddress,
-          amount,
-          signature: result.signature
-        });
-      } else {
-        console.error('Erreur payout automatique:', result.error);
-        socket.emit('payout_error', result.error);
-      }
-    } catch (error) {
-      console.error('Erreur payout automatique:', error);
-      socket.emit('payout_error', error.message);
-    }
-  });
-
-  // Event pour déclencher un payout automatique quand une bataille se termine
-  socket.on('battle_ended', async (data) => {
-    try {
-      const { winnerAddress, amount, battleId } = data;
-      console.log(`🏆 Bataille ${battleId} terminée, payout automatique pour ${winnerAddress}: ${amount} SOL`);
-      
-      // Appelle l'API payout
-      const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': '28082306Ab.'
-        },
-        body: JSON.stringify({
-          to: winnerAddress,
-          amount: amount
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('✅ Payout automatique réussi:', result.signature);
-        // Notifie TOUS les clients du succès
-        io.emit('payout_success', {
-          winnerAddress,
-          amount,
-          signature: result.signature,
-          battleId
-        });
-      } else {
-        console.error('❌ Erreur payout automatique:', result.error);
-        io.emit('payout_error', result.error);
-      }
-    } catch (error) {
-      console.error('❌ Erreur payout automatique:', error);
-      io.emit('payout_error', error.message);
-    }
-  });
-
-  // Event pour déclencher un payout automatique quand une bataille se termine (version alternative)
-  socket.on('battle_finished', async (data) => {
-    try {
-      const { winnerAddress, amount, battleId, winnerName } = data;
-      if (!amount || amount <= 0) {
-        // Aucun payout à faire
-        const infoMessage = `Aucun payout automatique : aucun pari n'a été placé pour ce combat.`;
-        io.emit('payout_info', infoMessage);
-        return;
-      }
-      console.log(`🏆 Bataille ${battleId} terminée, ${winnerName} gagne ${amount} SOL!`);
-      
-      // Appelle l'API payout automatiquement
-      const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': '28082306Ab.'
-        },
-        body: JSON.stringify({
-          to: winnerAddress,
-          amount: amount
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('✅ Payout automatique réussi:', result.signature);
-        // Notifie TOUS les clients du succès avec un message formaté
-        const successMessage = `🏆 ${winnerName} a gagné ${amount.toFixed(4)} SOL! (Payout automatique: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`;
-        io.emit('payout_success', {
-          winnerAddress,
-          amount,
-          signature: result.signature,
-          battleId,
-          message: successMessage
-        });
-      } else {
-        console.error('❌ Erreur payout automatique:', result.error);
-        const errorMessage = `❌ Erreur payout automatique: ${result.error}`;
-        io.emit('payout_error', errorMessage);
-      }
-    } catch (error) {
-      console.error('❌ Erreur payout automatique:', error);
-      const errorMessage = `❌ Erreur payout automatique: ${error.message}`;
-      io.emit('payout_error', errorMessage);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client déconnecté:', socket.id);
-  });
-});
-
-// Gestion d'erreur globale
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: err.message || 'Erreur serveur inattendue' });
-});
-
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Backend payout API running on port ${PORT}`);
-  
-  // Démarrer la première bataille
-  startNewBattle();
-}); 
+        user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}`

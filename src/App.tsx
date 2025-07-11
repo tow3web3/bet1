@@ -7,12 +7,14 @@ import { GameHistory } from './components/GameHistory';
 import { useGlobalBattle } from './hooks/useGlobalBattle';
 import { useSolanaWallet } from './hooks/useSolanaWallet';
 import UserChatPanel from './components/UserChatPanel';
+import { Leaderboard } from './components/Leaderboard';
 
 function App() {
   const { currentBattle, chatMessages, connectedUsers, connected, addChatMessage } = useGlobalBattle();
   const { user } = useSolanaWallet();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<'profile' | 'history'>('profile');
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     const handler = () => {
@@ -45,6 +47,17 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Bouton Leaderboard en haut à droite */}
+      <button
+        className="fixed top-4 right-4 z-50 bg-gradient-to-br from-yellow-400 to-green-400 text-black font-bold px-4 py-2 rounded-xl shadow-neon-green border-2 border-green-400/40 hover:scale-105 transition-all"
+        onClick={() => setShowLeaderboard(true)}
+      >
+        🏆 Leaderboard
+      </button>
+      {showLeaderboard && (
+        <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      )}
 
       {/* Layout 3 colonnes */}
       <div className="flex w-full min-h-[calc(100vh-48px)]">
