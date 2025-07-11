@@ -8,6 +8,59 @@ const payoutApi = require('./src/services/payoutApi');
 const app = express();
 const httpServer = createServer(app);
 
+// État global de la bataille
+let currentBattle = {
+  id: 'battle_1',
+  status: 'waiting',
+  startTime: new Date(Date.now() + 30000), // Commence dans 30 secondes
+  endTime: new Date(Date.now() + 90000), // Dure 1 minute
+  teams: [
+    { id: 'team1', name: 'Aigles', avatar: '🦅', bets: 0, totalAmount: 0 },
+    { id: 'team2', name: 'Lions', avatar: '🦁', bets: 0, totalAmount: 0 }
+  ],
+  totalPool: 0,
+  participants: 0,
+  winner: null,
+  chatMessages: []
+};
+
+// Fonction pour démarrer une nouvelle bataille
+function startNewBattle() {
+  currentBattle = {
+    id: `battle_${Date.now()}`,
+    status: 'waiting',
+    startTime: new Date(Date.now() + 30000),
+    endTime: new Date(Date.now() + 90000),
+    teams: [
+      { id: 'team1', name: 'Aigles', avatar: '🦅', bets: 0, totalAmount: 0 },
+      { id: 'team2', name: 'Lions', avatar: '🦁', bets: 0, totalAmount: 0 }
+    ],
+    totalPool: 0,
+    participants: 0,
+    winner: null,
+    chatMessages: []
+  };
+  
+  // Broadcast la nouvelle bataille
+  io.emit('battle_update', currentBattle);
+  
+  // Démarrer la bataille après 30 secondes
+  setTimeout(() => {
+    currentBattle.status = 'active';
+    io.emit('battle_update', currentBattle);
+    
+    // Terminer la bataille après 1 minute
+    setTimeout(() => {
+      currentBattle.status = 'finished';
+      currentBattle.winner = Math.random() > 0.5 ? 'team1' : 'team2';
+      io.emit('battle_update', currentBattle);
+      
+      // Démarrer une nouvelle bataille après 10 secondes
+      setTimeout(startNewBattle, 10000);
+    }, 60000);
+  }, 30000);
+}
+
 // Configuration Socket.IO avec CORS
 const io = new Server(httpServer, {
   cors: {
@@ -48,6 +101,46 @@ app.get('*', (req, res) => {
 // Socket.IO events
 io.on('connection', (socket) => {
   console.log('Client connecté:', socket.id);
+
+  // Envoyer l'état actuel de la bataille au nouveau client
+  socket.emit('battle_update', currentBattle);
+  
+  // Mettre à jour le nombre de participants
+  currentBattle.participants = io.engine.clientsCount;
+  io.emit('participants', currentBattle.participants);
+
+  // Gestion des batailles globales
+  socket.on('place_bet', (data) => {
+    console.log('Pari placé:', data);
+    
+    // Mettre à jour les stats de l'équipe
+    const team = currentBattle.teams.find(t => t.id === data.teamId);
+    if (team) {
+      team.bets += 1;
+      team.totalAmount += data.amount;
+      currentBattle.totalPool += data.amount;
+      currentBattle.participants = io.engine.clientsCount;
+      
+      // Broadcast la mise à jour
+      io.emit('battle_update', currentBattle);
+    }
+    
+    // Broadcast à tous les clients
+    io.emit('bet_placed', data);
+  });
+
+  // Gestion des messages de chat
+  socket.on('chat_message', (data) => {
+    console.log('Message chat:', data);
+    // Broadcast à tous les clients
+    io.emit('chat_message', {
+      id: Date.now().toString(),
+      user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
+      message: data.message,
+      timestamp: new Date(),
+      type: data.type || 'system'
+    });
+  });
 
   // Event pour déclencher un payout automatique
   socket.on('trigger_payout', async (data) => {
@@ -185,4 +278,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Backend payout API running on port ${PORT}`);
+  
+  // Démarrer la première bataille
+  startNewBattle();
 }); 
