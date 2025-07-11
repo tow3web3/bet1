@@ -2,11 +2,17 @@
 console.log('=== Démarrage du serveur Node.js (server.js) ===');
 
 require('dotenv').config();
+console.log('dotenv OK');
 const express = require('express');
+console.log('express OK');
 const cors = require('cors');
+console.log('cors OK');
 const { createServer } = require('http');
+console.log('http OK');
 const { Server } = require('socket.io');
+console.log('socket.io OK');
 const payoutApi = require('./src/services/payoutApi');
+console.log('payoutApi OK');
 
 // Vérification explicite de la clé privée pool
 try {
