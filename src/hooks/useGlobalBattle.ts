@@ -122,35 +122,17 @@ export const useGlobalBattle = () => {
     // Écoute des événements de payout automatique
     socket.on('payout_success', (data) => {
       console.log('✅ Payout automatique réussi:', data);
-      // Ajoute un message de succès dans le chat
-      const successMessage = `💸 Payout automatique réussi: +${data.amount} SOL → ${shortWallet(data.winnerAddress)} (tx: ${data.signature.slice(0,5)}...${data.signature.slice(-4)})`;
-      setChatMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        user: 'System',
-        message: successMessage,
-        timestamp: new Date(),
-        type: 'system'
-      }]);
     });
 
-    socket.on('payout_error', (error) => {
-      console.error('❌ Erreur payout automatique:', error);
-      // Ajoute un message d'erreur dans le chat
-      const errorMessage = `❌ Erreur payout automatique: ${error}`;
-      setChatMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        user: 'System',
-        message: errorMessage,
-        timestamp: new Date(),
-        type: 'system'
-      }]);
+    socket.on('payout_error', (data) => {
+      console.error('❌ Erreur de payout automatique:', data);
     });
 
     return () => {
       console.log('[SOCKET] 🔌 Déconnexion du socket');
       socket.disconnect();
     };
-  }, [currentBattle, user]);
+  }, [user]); // Retiré currentBattle des dépendances pour éviter les reconnexions
 
   const placeBet = useCallback((teamId: string, amount: number, userAddress: string) => {
     if (!socketRef.current) return;
