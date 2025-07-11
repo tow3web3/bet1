@@ -20,14 +20,27 @@ const UserChatPanel: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log('[USERCHAT] Tentative de connexion à:', SOCKET_URL);
     const socket = SOCKET_URL ? io(SOCKET_URL) : io();
     socketRef.current = socket;
 
+    socket.on('connect', () => {
+      console.log('[USERCHAT] ✅ Connecté au serveur');
+    });
+    socket.on('disconnect', () => {
+      console.log('[USERCHAT] ❌ Déconnecté du serveur');
+    });
+    socket.on('connect_error', (error) => {
+      console.error('[USERCHAT] ❌ Erreur de connexion:', error);
+    });
+
     socket.on('user_chat_message', (msg: UserChatMessage) => {
+      console.log('[USERCHAT] 💬 Message reçu:', msg);
       setMessages((prev) => [...prev, msg]);
     });
 
     return () => {
+      console.log('[USERCHAT] 🔌 Déconnexion du socket');
       socket.disconnect();
     };
   }, []);

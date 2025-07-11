@@ -37,6 +37,7 @@ export const useGlobalBattle = () => {
   const { user } = useSolanaWallet();
 
   useEffect(() => {
+    console.log('[SOCKET] Tentative de connexion à:', SOCKET_URL);
     // Crée la connexion socket.io avec polling forcé pour Render
     const socket = SOCKET_URL ? io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
@@ -47,10 +48,20 @@ export const useGlobalBattle = () => {
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('connect', () => {
+      console.log('[SOCKET] ✅ Connecté au serveur');
+      setConnected(true);
+    });
+    socket.on('disconnect', () => {
+      console.log('[SOCKET] ❌ Déconnecté du serveur');
+      setConnected(false);
+    });
+    socket.on('connect_error', (error) => {
+      console.error('[SOCKET] ❌ Erreur de connexion:', error);
+    });
 
     socket.on('battle_update', (payload) => {
+      console.log('[SOCKET] 📡 Reçu battle_update:', payload);
       const previousBattle = currentBattle;
       const newBattle = payload ? {
         ...payload,
@@ -79,10 +90,17 @@ export const useGlobalBattle = () => {
         });
       }
     });
-    socket.on('participants', (count) => setConnectedUsers(count));
+    socket.on('participants', (count) => {
+      console.log('[SOCKET] 👥 Participants:', count);
+      setConnectedUsers(count);
+    });
+    socket.on('chat_message', (message) => {
+      console.log('[SOCKET] 💬 Message reçu:', message);
+    });
 
     // Ajout : écoute des paiements de gains
     socket.on('payout_result', (data) => {
+      console.log('[SOCKET] 💰 Payout result:', data);
       if (!user || !user.fullAddress) return;
       if (data.user !== user.fullAddress) return;
       // Récupérer l'historique local
@@ -129,9 +147,10 @@ export const useGlobalBattle = () => {
     });
 
     return () => {
+      console.log('[SOCKET] 🔌 Déconnexion du socket');
       socket.disconnect();
     };
-  }, [user]);
+  }, [currentBattle, user]);
 
   const placeBet = useCallback((teamId: string, amount: number, userAddress: string) => {
     if (!socketRef.current) return;
