@@ -11,6 +11,9 @@
     "server": "node server.js",
     "start": "node server.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-phantom": "^0.9.28",
