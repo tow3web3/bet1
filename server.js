@@ -29,6 +29,8 @@ let globalBattleHistory = [];
 
 // Fonction pour démarrer une nouvelle bataille
 function startNewBattle() {
+  // Conserver les 30 derniers messages du chat précédent
+  const previousMessages = currentBattle.chatMessages ? currentBattle.chatMessages.slice(-30) : [];
   currentBattle = {
     id: `battle_${Date.now()}`,
     status: 'waiting',
@@ -41,7 +43,7 @@ function startNewBattle() {
     totalPool: 0,
     participants: 0,
     winner: null,
-    chatMessages: []
+    chatMessages: previousMessages // On garde les derniers messages
   };
   
   // Broadcast la nouvelle bataille
