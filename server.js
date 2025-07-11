@@ -160,10 +160,10 @@ app.post('/api/bet', (req, res) => {
   }
 });
 
-// Serve static files from the dist directory (frontend)
+// Serve static files from the dist directory (frontend) - APRÈS les routes API
 app.use(express.static('dist'));
 
-// Serve the frontend for all non-API routes
+// Serve the frontend for all non-API routes (doit être en dernier)
 app.get('*', (req, res) => {
   res.sendFile('index.html', { root: 'dist' });
 });
