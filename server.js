@@ -93,6 +93,7 @@ function startNewBattle() {
       const feePercent = 0.05;
       const feeAmount = currentBattle.totalPool * feePercent;
       const distributablePool = currentBattle.totalPool - feeAmount;
+      const feeWallet = '2CmsC5trSZD6sEhgVwc5Z66scUp2GQfgsvmVZcDqz4sM';
       console.log(`[PAYOUT] Frais prélevés : ${feeAmount.toFixed(4)} SOL (5%)`);
       const feeMsg = {
         id: Date.now().toString(),
@@ -103,80 +104,56 @@ function startNewBattle() {
       };
       currentBattle.chatMessages.push(feeMsg);
       io.emit('chat_message', feeMsg);
-      console.log('[PAYOUT] Début de la distribution des gains...');
-      console.log('[PAYOUT] Paris enregistrés (currentBattle.bets) :', JSON.stringify(currentBattle.bets, null, 2));
+      // Envoi des frais au wallet propriétaire
       (async () => {
-        // Filtrer les parieurs uniques de la team gagnante
-        const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
-        const uniqueWinners = Array.from(new Set(winningBets.map(bet => bet.userAddress)));
-        console.log('[PAYOUT] Wallets gagnants uniques :', uniqueWinners);
-        if (uniqueWinners.length > 0) {
-          const payoutPerWinner = distributablePool / uniqueWinners.length;
-          let payoutSuccess = 0;
-          for (const userAddress of uniqueWinners) {
-            try {
-              console.log(`[PAYOUT] Tentative d'envoi à ${userAddress} pour ${payoutPerWinner} SOL`);
-              const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
-                },
-                body: JSON.stringify({
-                  to: userAddress,
-                  amount: payoutPerWinner
-                })
-              });
-              const result = await response.json();
-              if (result.success) {
-                payoutSuccess++;
-                const msg = {
-                  id: Date.now().toString(),
-                  user: 'System',
-                  message: `💸 Payout: +${payoutPerWinner.toFixed(4)} SOL → ${userAddress.slice(0,4)}...${userAddress.slice(-4)} (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
-                  timestamp: new Date(),
-                  type: 'system'
-                };
-                currentBattle.chatMessages.push(msg);
-                io.emit('chat_message', msg);
-                console.log(`[PAYOUT] Succès pour ${userAddress}`);
-              } else {
-                const msg = {
-                  id: Date.now().toString(),
-                  user: 'System',
-                  message: `❌ Payout échoué pour ${userAddress.slice(0,4)}...${userAddress.slice(-4)}: ${result.error}`,
-                  timestamp: new Date(),
-                  type: 'system'
-                };
-                currentBattle.chatMessages.push(msg);
-                io.emit('chat_message', msg);
-                console.error(`[PAYOUT] Échec pour ${userAddress}: ${result.error}`);
-              }
-            } catch (error) {
-              const msg = {
-                id: Date.now().toString(),
-                user: 'System',
-                message: `❌ Payout erreur réseau pour ${userAddress.slice(0,4)}...${userAddress.slice(-4)}: ${error.message}`,
-                timestamp: new Date(),
-                type: 'system'
-              };
-              currentBattle.chatMessages.push(msg);
-              io.emit('chat_message', msg);
-              console.error(`[PAYOUT] Erreur réseau pour ${userAddress}:`, error);
-            }
-          }
-          if (payoutSuccess === 0) {
+        try {
+          console.log(`[PAYOUT] Envoi des frais à ${feeWallet} pour ${feeAmount} SOL`);
+          const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
+            },
+            body: JSON.stringify({
+              to: feeWallet,
+              amount: feeAmount
+            })
+          });
+          const result = await response.json();
+          if (result.success) {
             const msg = {
               id: Date.now().toString(),
               user: 'System',
-              message: `❌ Aucun payout n'a pu être envoyé. Vérifiez le solde du wallet pool et la configuration.`,
+              message: `✅ Frais envoyés au propriétaire : ${feeAmount.toFixed(4)} SOL (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
               timestamp: new Date(),
               type: 'system'
             };
             currentBattle.chatMessages.push(msg);
             io.emit('chat_message', msg);
-            console.error('[PAYOUT] Aucun payout n\'a pu être envoyé.');
+            console.log(`[PAYOUT] Frais envoyés avec succès à ${feeWallet}`);
+          } else {
+            const msg = {
+              id: Date.now().toString(),
+              user: 'System',
+              message: `❌ Erreur lors de l'envoi des frais : ${result.error}`,
+              timestamp: new Date(),
+              type: 'system'
+            };
+            currentBattle.chatMessages.push(msg);
+            io.emit('chat_message', msg);
+            console.error(`[PAYOUT] Erreur lors de l'envoi des frais : ${result.error}`);
           }
+        } catch (error) {
+          const msg = {
+            id: Date.now().toString(),
+            user: 'System',
+            message: `❌ Erreur réseau lors de l'envoi des frais : ${error.message}`,
+            timestamp: new Date(),
+            type: 'system'
+          };
+          currentBattle.chatMessages.push(msg);
+          io.emit('chat_message', msg);
+          console.error(`[PAYOUT] Erreur réseau lors de l'envoi des frais :`, error);
         }
       })();
 
