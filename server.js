@@ -119,6 +119,47 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Endpoint pour récupérer l'état de la bataille
+app.get('/api/battle', (req, res) => {
+  res.json(currentBattle);
+});
+
+// Endpoint pour placer un pari
+app.post('/api/bet', (req, res) => {
+  const { teamId, amount, userAddress } = req.body;
+  
+  if (!teamId || !amount || !userAddress) {
+    return res.status(400).json({ error: 'Données manquantes' });
+  }
+  
+  // Mettre à jour les stats de l'équipe
+  const team = currentBattle.teams.find(t => t.id === teamId);
+  if (team) {
+    team.bets += 1;
+    team.totalAmount += amount;
+    currentBattle.totalPool += amount;
+    currentBattle.participants = io.engine.clientsCount;
+    
+    // Ajouter un message de chat pour le pari
+    const betMessage = {
+      id: Date.now().toString(),
+      user: userAddress ? `${userAddress.slice(0,4)}...${userAddress.slice(-4)}` : 'Anonyme',
+      message: `💎 Pari ${amount} SOL sur ${team.name}`,
+      timestamp: new Date(),
+      type: 'bet'
+    };
+    currentBattle.chatMessages.push(betMessage);
+    
+    // Broadcast la mise à jour
+    io.emit('battle_update', currentBattle);
+    io.emit('chat_message', betMessage);
+    
+    res.json({ success: true, message: 'Pari placé avec succès' });
+  } else {
+    res.status(400).json({ error: 'Équipe non trouvée' });
+  }
+});
+
 // Serve static files from the dist directory (frontend)
 app.use(express.static('dist'));
 
