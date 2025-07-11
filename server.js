@@ -283,6 +283,8 @@ io.on('connection', (socket) => {
 
   // Gestion des batailles globales
   socket.on('place_bet', (data) => {
+    console.log('[SOCKET/BET] Pari reçu via socket.io :', data);
+    currentBattle.bets.push({ teamId: data.teamId, amount: data.amount, userAddress: data.userAddress });
     console.log('Pari placé:', data);
     
     // Mettre à jour les stats de l'équipe
