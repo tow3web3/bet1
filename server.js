@@ -90,6 +90,19 @@ function startNewBattle() {
       io.emit('chat_message', winMessage);
 
       // Payout équitable à tous les gagnants (version async/await + logs)
+      const feePercent = 0.05;
+      const feeAmount = currentBattle.totalPool * feePercent;
+      const distributablePool = currentBattle.totalPool - feeAmount;
+      console.log(`[PAYOUT] Frais prélevés : ${feeAmount.toFixed(4)} SOL (5%)`);
+      const feeMsg = {
+        id: Date.now().toString(),
+        user: 'System',
+        message: `💰 Frais prélevés sur le pool : ${feeAmount.toFixed(4)} SOL (5%)`,
+        timestamp: new Date(),
+        type: 'system'
+      };
+      currentBattle.chatMessages.push(feeMsg);
+      io.emit('chat_message', feeMsg);
       console.log('[PAYOUT] Début de la distribution des gains...');
       console.log('[PAYOUT] Paris enregistrés (currentBattle.bets) :', JSON.stringify(currentBattle.bets, null, 2));
       (async () => {
@@ -98,7 +111,7 @@ function startNewBattle() {
         const uniqueWinners = Array.from(new Set(winningBets.map(bet => bet.userAddress)));
         console.log('[PAYOUT] Wallets gagnants uniques :', uniqueWinners);
         if (uniqueWinners.length > 0) {
-          const payoutPerWinner = currentBattle.totalPool / uniqueWinners.length;
+          const payoutPerWinner = distributablePool / uniqueWinners.length;
           let payoutSuccess = 0;
           for (const userAddress of uniqueWinners) {
             try {
