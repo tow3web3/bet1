@@ -24,6 +24,9 @@ let currentBattle = {
   chatMessages: []
 };
 
+// Historique global des batailles (en mémoire)
+let globalBattleHistory = [];
+
 // Fonction pour démarrer une nouvelle bataille
 function startNewBattle() {
   currentBattle = {
@@ -81,7 +84,11 @@ function startNewBattle() {
       
       io.emit('battle_update', currentBattle);
       io.emit('chat_message', winMessage);
-      
+
+      // Sauvegarder une copie de la bataille terminée dans l'historique
+      globalBattleHistory.unshift({ ...currentBattle });
+      if (globalBattleHistory.length > 20) globalBattleHistory = globalBattleHistory.slice(0, 20);
+
       // Démarrer une nouvelle bataille après 10 secondes
       setTimeout(startNewBattle, 10000);
     }, 60000);
@@ -122,6 +129,11 @@ app.get('/api/health', (req, res) => {
 // Endpoint pour récupérer l'état de la bataille
 app.get('/api/battle', (req, res) => {
   res.json(currentBattle);
+});
+
+// Endpoint pour l'historique global (retourne les 20 dernières batailles)
+app.get('/api/history', (req, res) => {
+  res.json(globalBattleHistory);
 });
 
 // Endpoint pour placer un pari
