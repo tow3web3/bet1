@@ -37,8 +37,14 @@ export const useGlobalBattle = () => {
   const { user } = useSolanaWallet();
 
   useEffect(() => {
-    // Crée la connexion socket.io
-    const socket = SOCKET_URL ? io(SOCKET_URL) : io();
+    // Crée la connexion socket.io avec polling forcé pour Render
+    const socket = SOCKET_URL ? io(SOCKET_URL, {
+      transports: ['polling', 'websocket'],
+      forceNew: true
+    }) : io({
+      transports: ['polling', 'websocket'],
+      forceNew: true
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));

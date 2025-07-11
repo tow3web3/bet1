@@ -88,12 +88,14 @@ function startNewBattle() {
   }, 30000);
 }
 
-// Configuration Socket.IO avec CORS
+// Configuration Socket.IO avec CORS et polling forcé pour Render
 const io = new Server(httpServer, {
   cors: {
     origin: ["http://localhost:5173", "http://localhost:3000", "https://bet1-oeah.onrender.com"],
     methods: ["GET", "POST"]
-  }
+  },
+  transports: ['polling', 'websocket'], // Forcer le polling en premier
+  allowEIO3: true // Compatibilité avec les anciennes versions
 });
 
 // Middleware CORS pour permettre les appels depuis le front-end
