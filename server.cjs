@@ -1,3 +1,5 @@
+console.log("=== [BOOT] server.cjs: démarrage du backend ===");
+try {
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -315,3 +317,14 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+console.log("=== [BOOT] Lancement du serveur HTTP sur le port", process.env.PORT || 3001);
+httpServer.listen(process.env.PORT || 3001, () => {
+  console.log(`Serveur HTTP démarré sur le port ${process.env.PORT || 3001}`);
+});
+
+} catch (err) {
+  console.error("=== [CRASH] Erreur critique au démarrage du backend ===");
+  console.error(err && err.stack ? err.stack : err);
+  process.exit(1);
+}
