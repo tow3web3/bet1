@@ -27,6 +27,14 @@ app.use(express.json());
 // Utilise l'API payout sécurisée
 app.use(payoutApi);
 
+// Serve static files from the dist directory (frontend)
+app.use(express.static('dist'));
+
+// Serve the frontend for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile('index.html', { root: 'dist' });
+});
+
 // Endpoint de santé pour tester le déploiement
 app.get('/api/health', (req, res) => {
   res.json({ 
