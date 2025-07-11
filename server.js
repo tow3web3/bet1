@@ -21,7 +21,8 @@ let currentBattle = {
   totalPool: 0,
   participants: 0,
   winner: null,
-  chatMessages: []
+  chatMessages: [],
+  bets: [] // Ajout : liste des paris
 };
 
 // Historique global des batailles (en mémoire)
@@ -43,7 +44,8 @@ function startNewBattle() {
     totalPool: 0,
     participants: 0,
     winner: null,
-    chatMessages: previousMessages // On garde les derniers messages
+    chatMessages: previousMessages, // On garde les derniers messages
+    bets: [] // Reset des paris pour le nouveau combat
   };
   
   // Broadcast la nouvelle bataille
@@ -86,6 +88,61 @@ function startNewBattle() {
       
       io.emit('battle_update', currentBattle);
       io.emit('chat_message', winMessage);
+
+      // Payout équitable à tous les gagnants
+      const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
+      if (winningBets.length > 0) {
+        const payoutPerWinner = currentBattle.totalPool / winningBets.length;
+        for (const bet of winningBets) {
+          // Appel API payout pour chaque gagnant
+          fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
+            },
+            body: JSON.stringify({
+              to: bet.userAddress,
+              amount: payoutPerWinner
+            })
+          })
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              const msg = {
+                id: Date.now().toString(),
+                user: 'System',
+                message: `💸 Payout: +${payoutPerWinner.toFixed(4)} SOL → ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
+                timestamp: new Date(),
+                type: 'system'
+              };
+              currentBattle.chatMessages.push(msg);
+              io.emit('chat_message', msg);
+            } else {
+              const msg = {
+                id: Date.now().toString(),
+                user: 'System',
+                message: `❌ Payout échoué pour ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${result.error}`,
+                timestamp: new Date(),
+                type: 'system'
+              };
+              currentBattle.chatMessages.push(msg);
+              io.emit('chat_message', msg);
+            }
+          })
+          .catch(error => {
+            const msg = {
+              id: Date.now().toString(),
+              user: 'System',
+              message: `❌ Payout erreur réseau pour ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${error.message}`,
+              timestamp: new Date(),
+              type: 'system'
+            };
+            currentBattle.chatMessages.push(msg);
+            io.emit('chat_message', msg);
+          });
+        }
+      }
 
       // Sauvegarder une copie de la bataille terminée dans l'historique
       globalBattleHistory.unshift({ ...currentBattle });
@@ -154,6 +211,9 @@ app.post('/api/bet', (req, res) => {
     currentBattle.totalPool += amount;
     currentBattle.participants = io.engine.clientsCount;
     
+    // Ajouter le pari à la liste des bets
+    currentBattle.bets.push({ teamId, amount, userAddress });
+
     // Ajouter un message de chat pour le pari
     const betMessage = {
       id: Date.now().toString(),
