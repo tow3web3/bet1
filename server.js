@@ -1,9 +1,29 @@
+// Log de démarrage explicite
+console.log('=== Démarrage du serveur Node.js (server.js) ===');
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const payoutApi = require('./src/services/payoutApi');
+
+// Vérification explicite de la clé privée pool
+try {
+  const POOL_PRIVATE_KEY_STRING = process.env.POOL_PRIVATE_KEY;
+  if (!POOL_PRIVATE_KEY_STRING) {
+    throw new Error('POOL_PRIVATE_KEY non définie dans les variables d\'environnement');
+  }
+  // Test de parsing
+  const POOL_PRIVATE_KEY = Uint8Array.from(JSON.parse(POOL_PRIVATE_KEY_STRING));
+  if (!POOL_PRIVATE_KEY || POOL_PRIVATE_KEY.length < 32) {
+    throw new Error('POOL_PRIVATE_KEY mal formatée ou trop courte');
+  }
+  console.log('POOL_PRIVATE_KEY chargée et formatée correctement.');
+} catch (err) {
+  console.error('ERREUR INIT WALLET POOL:', err);
+  process.exit(1);
+}
 
 const app = express();
 const httpServer = createServer(app);
