@@ -90,6 +90,7 @@ function startNewBattle() {
       io.emit('chat_message', winMessage);
 
       // Payout équitable à tous les gagnants (version async/await + logs)
+      console.log('[PAYOUT] Début de la distribution des gains...');
       (async () => {
         const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
         if (winningBets.length > 0) {
