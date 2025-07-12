@@ -62,11 +62,12 @@ export const GameHistory: React.FC<GameHistoryProps> = ({ initialTab }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Scroll automatique seulement quand de nouveaux éléments sont ajoutés, pas lors du changement d'onglet
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messagesEndRef.current && (userHistory.length > 0 || globalHistory.length > 0)) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [userHistory, globalHistory, showGlobal, showProfile]);
+  }, [userHistory.length, globalHistory.length]); // Seulement la longueur, pas le contenu complet
 
   // Stats utilisateur
   const totalBets = userHistory.length;
