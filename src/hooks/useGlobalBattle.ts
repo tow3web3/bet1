@@ -75,19 +75,27 @@ export const useGlobalBattle = () => {
   const { user } = useSolanaWallet();
 
   useEffect(() => {
+    console.log('[DEBUG] useGlobalBattle useEffect déclenché');
     const socket = getGlobalSocket();
     
     // Mettre à jour l'état de connexion
+    console.log('[DEBUG] Socket connecté:', socket.connected);
     setConnected(socket.connected);
     
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
+    const handleConnect = () => {
+      console.log('[DEBUG] Socket connecté dans handleConnect');
+      setConnected(true);
+    };
+    const handleDisconnect = () => {
+      console.log('[DEBUG] Socket déconnecté dans handleDisconnect');
+      setConnected(false);
+    };
     
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
 
     socket.on('battle_update', (payload) => {
-      console.log('[SOCKET] 📡 Reçu battle_update:', payload);
+      console.log('[DEBUG] battle_update reçu:', payload);
       const previousBattle = currentBattle;
       const newBattle = payload ? {
         ...payload,
@@ -95,6 +103,7 @@ export const useGlobalBattle = () => {
         endTime: payload.endTime ? new Date(payload.endTime) : undefined
       } : null;
       
+      console.log('[DEBUG] Mise à jour currentBattle:', newBattle);
       setCurrentBattle(newBattle);
       setChatMessages(payload?.chatMessages || []);
       setConnectedUsers(payload?.participants || 0);
@@ -118,12 +127,12 @@ export const useGlobalBattle = () => {
     });
     
     socket.on('participants', (count) => {
-      console.log('[SOCKET] 👥 Participants:', count);
+      console.log('[DEBUG] Participants reçu:', count);
       setConnectedUsers(count);
     });
     
     socket.on('chat_message', (message) => {
-      console.log('[SOCKET] 💬 Message reçu:', message);
+      console.log('[DEBUG] chat_message reçu:', message);
     });
 
     // Ajout : écoute des paiements de gains
@@ -157,6 +166,7 @@ export const useGlobalBattle = () => {
     });
 
     return () => {
+      console.log('[DEBUG] Cleanup useGlobalBattle');
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('battle_update');
