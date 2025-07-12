@@ -162,6 +162,90 @@ function startNewBattle() {
         }
       })();
 
+      // PAYOUT DES GAGNANTS - Distribuer les gains aux utilisateurs qui ont parié sur l'équipe gagnante
+      console.log(`[PAYOUT] Début du payout des gagnants. Pool distributable: ${distributablePool.toFixed(4)} SOL`);
+      
+      // Trouver tous les paris sur l'équipe gagnante
+      const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
+      console.log(`[PAYOUT] ${winningBets.length} paris gagnants trouvés:`, winningBets);
+      
+      if (winningBets.length > 0 && distributablePool > 0) {
+        // Calculer le montant par gagnant (distribution équitable)
+        const amountPerWinner = distributablePool / winningBets.length;
+        console.log(`[PAYOUT] Montant par gagnant: ${amountPerWinner.toFixed(4)} SOL`);
+        
+        // Envoyer les gains à chaque gagnant
+        winningBets.forEach(async (bet, index) => {
+          try {
+            console.log(`[PAYOUT] Envoi ${amountPerWinner.toFixed(4)} SOL à ${bet.userAddress}`);
+            const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
+              },
+              body: JSON.stringify({
+                to: bet.userAddress,
+                amount: amountPerWinner
+              })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+              // Mettre à jour le leaderboard
+              if (!leaderboard[bet.userAddress]) {
+                leaderboard[bet.userAddress] = 0;
+              }
+              leaderboard[bet.userAddress] += amountPerWinner;
+              
+              const msg = {
+                id: Date.now().toString(),
+                user: 'System',
+                message: `🎉 ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} gagne ${amountPerWinner.toFixed(4)} SOL ! (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
+                timestamp: new Date(),
+                type: 'win'
+              };
+              currentBattle.chatMessages.push(msg);
+              io.emit('chat_message', msg);
+              console.log(`[PAYOUT] Gain envoyé avec succès à ${bet.userAddress}`);
+            } else {
+              const msg = {
+                id: Date.now().toString(),
+                user: 'System',
+                message: `❌ Erreur payout ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${result.error}`,
+                timestamp: new Date(),
+                type: 'system'
+              };
+              currentBattle.chatMessages.push(msg);
+              io.emit('chat_message', msg);
+              console.error(`[PAYOUT] Erreur lors de l'envoi du gain à ${bet.userAddress}:`, result.error);
+            }
+          } catch (error) {
+            const msg = {
+              id: Date.now().toString(),
+              user: 'System',
+              message: `❌ Erreur réseau payout ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)}: ${error.message}`,
+              timestamp: new Date(),
+              type: 'system'
+            };
+            currentBattle.chatMessages.push(msg);
+            io.emit('chat_message', msg);
+            console.error(`[PAYOUT] Erreur réseau lors de l'envoi du gain à ${bet.userAddress}:`, error);
+          }
+        });
+      } else {
+        const msg = {
+          id: Date.now().toString(),
+          user: 'System',
+          message: `💤 Aucun gagnant ou pool vide (${distributablePool.toFixed(4)} SOL)`,
+          timestamp: new Date(),
+          type: 'system'
+        };
+        currentBattle.chatMessages.push(msg);
+        io.emit('chat_message', msg);
+        console.log(`[PAYOUT] Aucun gagnant ou pool vide`);
+      }
+
       // Sauvegarder une copie de la bataille terminée dans l'historique
       globalBattleHistory.unshift({ ...currentBattle });
       if (globalBattleHistory.length > 20) globalBattleHistory = globalBattleHistory.slice(0, 20);
