@@ -8,6 +8,7 @@ import { useGlobalBattle } from './hooks/useGlobalBattle';
 import { useSolanaWallet } from './hooks/useSolanaWallet';
 import UserChatPanel from './components/UserChatPanel';
 import { Leaderboard } from './components/Leaderboard';
+import LuckyPoolInfo from './components/LuckyPoolInfo';
 
 function App() {
   const { currentBattle, chatMessages, connectedUsers, connected, addChatMessage } = useGlobalBattle();
@@ -70,6 +71,7 @@ function App() {
         <main className="flex-1 flex flex-col items-center justify-start px-2 md:px-6 py-4 space-y-4 max-w-2xl mx-auto">
           <div className="w-full space-y-3">
             <RealWalletConnection />
+            <LuckyPoolInfo />
             <RealBattleArena battle={currentBattle} />
             {/* Bouton Historique */}
             <div className="flex justify-center mt-2">

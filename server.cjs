@@ -33,6 +33,20 @@ let globalBattleHistory = [];
 // Leaderboard global des gains (en mémoire)
 let leaderboard = {};
 
+// Lucky Pool, Luck Scores, Referrals
+let luckyPool = 0;
+let luckScores = {};
+let referrals = {}; // { filleul: parrain }
+const DEAD_WALLET = '11111111111111111111111111111111'; // Burn address
+const RAKE_WALLET = '2CmsC5trSZD6sEhgVwc5Z66scUp2GQfgsvmVZcDqz4sM';
+
+// Stockage du dernier gagnant Lucky Pool
+let lastLuckyWinner = null;
+let lastLuckyAmount = 0;
+
+// Ajout d'un suivi du nombre de parties jouées par chaque wallet (pour la sécurité du parrainage)
+let userGamesPlayed = {};
+
 // Fonction pour démarrer une nouvelle bataille
 function startNewBattle() {
   // Conserver les 30 derniers messages du chat précédent
@@ -173,7 +187,11 @@ function startNewBattle() {
         // Calculer le montant par gagnant (distribution équitable)
         const amountPerWinner = distributablePool / winningBets.length;
         console.log(`[PAYOUT] Montant par gagnant: ${amountPerWinner.toFixed(4)} SOL`);
-        
+
+        // Débiter la Lucky Pool du montant total payé aux gagnants
+        const totalPayout = amountPerWinner * winningBets.length;
+        luckyPool = Math.max(0, luckyPool - totalPayout);
+
         // Envoyer les gains à chaque gagnant
         winningBets.forEach(async (bet, index) => {
           try {
@@ -249,6 +267,72 @@ function startNewBattle() {
       // Sauvegarder une copie de la bataille terminée dans l'historique
       globalBattleHistory.unshift({ ...currentBattle });
       if (globalBattleHistory.length > 20) globalBattleHistory = globalBattleHistory.slice(0, 20);
+
+      // Lucky Pool : tirage tous les 10 combats
+      if (globalBattleHistory.length > 0 && globalBattleHistory.length % 10 === 0 && luckyPool > 0) {
+        // Calculer les luck scores pondérés
+        const playerLuck = {};
+        globalBattleHistory.slice(0, 10).forEach(battle => {
+          (battle.bets || []).forEach(bet => {
+            const addr = bet.userAddress;
+            // +1 par combat joué (déjà fait), +2 par défaite récente
+            if (!playerLuck[addr]) playerLuck[addr] = 0;
+            playerLuck[addr] += 1;
+            if (bet.teamId !== battle.winner) playerLuck[addr] += 2;
+          });
+        });
+        // Ajouter les bonus referral
+        Object.entries(luckScores).forEach(([addr, score]) => {
+          playerLuck[addr] = (playerLuck[addr] || 0) + score;
+        });
+        // Weighted random
+        const entries = Object.entries(playerLuck).filter(([addr, score]) => score > 0);
+        const totalLuck = entries.reduce((sum, [_, score]) => sum + score, 0);
+        let r = Math.random() * totalLuck;
+        let winner = null;
+        for (const [addr, score] of entries) {
+          if (r < score) { winner = addr; break; }
+          r -= score;
+        }
+        if (winner) {
+          // Payout Lucky Pool
+          (async () => {
+            try {
+              const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': process.env.PAYOUT_API_KEY || '28082306Ab.'
+                },
+                body: JSON.stringify({
+                  to: winner,
+                  amount: luckyPool
+                })
+              });
+              const result = await response.json();
+              if (result.success) {
+                const msg = {
+                  id: Date.now().toString(),
+                  user: 'System',
+                  message: `🎉 Wallet ${winner.slice(0,4)}...${winner.slice(-4)} just won the Lucky Pool of ${luckyPool.toFixed(2)} SOL! Keep playing to win the next one.`,
+                  timestamp: new Date(),
+                  type: 'system'
+                };
+                currentBattle.chatMessages.push(msg);
+                io.emit('chat_message', msg);
+                console.log(`[LUCKY POOL] ${winner} gagne ${luckyPool} SOL !`);
+                lastLuckyWinner = winner;
+                lastLuckyAmount = luckyPool;
+                luckyPool = 0;
+              } else {
+                console.error('[LUCKY POOL] Erreur payout:', result.error);
+              }
+            } catch (e) {
+              console.error('[LUCKY POOL] Erreur réseau:', e);
+            }
+          })();
+        }
+      }
 
       // Démarrer une nouvelle bataille après 10 secondes
       setTimeout(startNewBattle, 10000);
@@ -335,31 +419,65 @@ app.get('/api/leaderboard', (req, res) => {
 });
 
 // Endpoint pour placer un pari
-app.post('/api/bet', (req, res) => {
-  const { teamId, amount, userAddress } = req.body;
-  console.log('[API/BET] Pari reçu :', { teamId, amount, userAddress });
+app.post('/api/bet', async (req, res) => {
+  const { teamId, amount, userAddress, ref } = req.body;
+  console.log('[API/BET] Pari reçu :', { teamId, amount, userAddress, ref });
   
   if (!teamId || !amount || !userAddress) {
     return res.status(400).json({ error: 'Données manquantes' });
   }
-  
+
+  // --- Referral ---
+  userGamesPlayed[userAddress] = (userGamesPlayed[userAddress] || 0) + 1;
+  if (ref && ref !== userAddress && !referrals[userAddress]) {
+    referrals[userAddress] = ref;
+    // Filleul : +20 luck dès la première partie
+    luckScores[userAddress] = (luckScores[userAddress] || 0) + 20;
+    console.log(`[REFERRAL] ${ref} parraine ${userAddress} (+20 luck filleul)`);
+  }
+  // Parrain : +50 luck UNIQUEMENT si le filleul a joué 5 parties (et pas déjà crédité)
+  if (referrals[userAddress]) {
+    const parrain = referrals[userAddress];
+    if (userGamesPlayed[userAddress] === 5 && !(userAddress + '_done' in referrals)) {
+      luckScores[parrain] = (luckScores[parrain] || 0) + 50;
+      referrals[userAddress + '_done'] = true; // Marque comme crédité
+      console.log(`[REFERRAL] ${parrain} reçoit +50 luck car ${userAddress} a joué 5 parties !`);
+    }
+  }
+
+  // --- Taxe 15% ---
+  const burnAmount = amount * 0.05;
+  const rakeAmount = amount * 0.05;
+  const luckyAmount = amount * 0.05;
+  const betAmount = amount * 0.85;
+
+  // Les 5% burn vont dans la Lucky Pool (plus de burn vers le dead wallet)
+  luckyPool += burnAmount + luckyAmount;
+  // Envoyer le rake (simulé)
+  setTimeout(() => {
+    console.log(`[RAKE] ${rakeAmount.toFixed(4)} SOL envoyés à ${RAKE_WALLET}`);
+  }, 0);
+
   // Mettre à jour les stats de l'équipe
   const team = currentBattle.teams.find(t => t.id === teamId);
   if (team) {
     team.bets += 1;
-    team.totalAmount += amount;
-    currentBattle.totalPool += amount;
+    team.totalAmount += betAmount;
+    currentBattle.totalPool += betAmount;
     currentBattle.participants = io.engine.clientsCount;
     
     // Ajouter le pari à la liste des bets
-    currentBattle.bets.push({ teamId, amount, userAddress });
+    currentBattle.bets.push({ teamId, amount: betAmount, userAddress });
     console.log('[API/BET] Paris enregistrés après ajout :', JSON.stringify(currentBattle.bets, null, 2));
+
+    // Luck score : +1 combat joué
+    luckScores[userAddress] = (luckScores[userAddress] || 0) + 1;
 
     // Ajouter un message de chat pour le pari
     const betMessage = {
       id: Date.now().toString(),
       user: userAddress ? `${userAddress.slice(0,4)}...${userAddress.slice(-4)}` : 'Anonyme',
-      message: `💎 Pari ${amount} SOL sur ${team.name}`,
+      message: `💎 Pari ${betAmount} SOL sur ${team.name} (15% taxe: 5% burn, 5% rake, 5% Lucky Pool)` ,
       timestamp: new Date(),
       type: 'bet'
     };
@@ -373,6 +491,11 @@ app.post('/api/bet', (req, res) => {
   } else {
     res.status(400).json({ error: 'Équipe non trouvée' });
   }
+});
+
+// Nouvelle route API Lucky Pool
+app.get('/api/lucky-pool', (req, res) => {
+  res.json({ pool: luckyPool, lastWinner: lastLuckyWinner, lastAmount: lastLuckyAmount });
 });
 
 // Serve static files from the dist directory (frontend) - APRÈS les routes API
@@ -466,7 +589,6 @@ io.on('connection', (socket) => {
 console.log("=== [BOOT] Lancement du serveur HTTP sur le port", process.env.PORT || 3001);
 httpServer.listen(process.env.PORT || 3001, () => {
   console.log(`Serveur HTTP démarré sur le port ${process.env.PORT || 3001}`);
-  
   // Démarrer le premier combat
   console.log("=== [BOOT] Démarrage du premier combat");
   startNewBattle();
