@@ -529,6 +529,8 @@ io.on('connection', (socket) => {
   socket.on('place_bet', (data) => {
     console.log('[SOCKET/BET] Pari reçu via socket.io :', data);
     const betAmount = data.amount * 0.85;
+    const luckyAmount = data.amount * 0.05;
+    luckyPool += luckyAmount;
     currentBattle.bets.push({ teamId: data.teamId, amount: betAmount, userAddress: data.userAddress });
     console.log('[SOCKET/BET] Paris enregistrés après ajout (socket.io) :', JSON.stringify(currentBattle.bets, null, 2));
     
