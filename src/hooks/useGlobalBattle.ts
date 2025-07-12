@@ -134,7 +134,12 @@ export const useGlobalBattle = () => {
     socket.on('chat_message', (message) => {
       console.log('[DEBUG] chat_message reçu:', message);
       // Ajouter le message à l'état local
-      setChatMessages(prev => [...prev, message]);
+      setChatMessages(prev => {
+        console.log('[DEBUG] Ajout du message à chatMessages. Ancien count:', prev.length);
+        const newMessages = [...prev, message];
+        console.log('[DEBUG] Nouveau count:', newMessages.length);
+        return newMessages;
+      });
     });
 
     // Ajout : écoute des paiements de gains

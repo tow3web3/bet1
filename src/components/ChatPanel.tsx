@@ -51,10 +51,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage })
         return 'bg-green-500/20 border-green-500/30 text-green-200';
       case 'win':
         return 'bg-yellow-500/20 border-yellow-500/30 text-yellow-200';
+      case 'message':
+        return 'bg-purple-500/20 border-purple-500/30 text-purple-200';
       default:
         return 'bg-gray-500/20 border-gray-500/30 text-gray-200';
     }
   };
+
+  // Afficher tous les messages, pas seulement system/bet/win
+  const displayMessages = messages.filter(m => ['system','bet','win','message'].includes(m.type));
 
   return (
     <div className="bg-black/90 rounded-xl border border-blue-400/30 shadow-neon-blue flex flex-col h-full font-mono">
@@ -65,21 +70,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage })
         </div>
         <div>
           <h3 className="text-base font-bold text-blue-300 drop-shadow-neon">Journal du Combat</h3>
-          <p className="text-blue-500 text-xs">{messages.filter(m => ['system','bet','win'].includes(m.type)).length} evt</p>
+          <p className="text-blue-500 text-xs">{displayMessages.length} messages</p>
         </div>
       </div>
       <div className="h-0.5 bg-blue-400/10" />
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-48 chat-container">
-        {messages.filter(m => ['system','bet','win'].includes(m.type)).length === 0 ? (
+        {displayMessages.length === 0 ? (
           <div className="text-center text-blue-300/70 text-xs py-8">
             <MessageCircle className="w-6 h-6 mx-auto mb-2 opacity-50" />
-            <p>Aucun événement</p>
-            <p className="text-xs mt-1">Les paris et résultats s'afficheront ici</p>
+            <p>Aucun message</p>
+            <p className="text-xs mt-1">Les messages s'afficheront ici</p>
           </div>
         ) : (
           <>
-            {messages.filter(m => ['system','bet','win'].includes(m.type)).map((message) => (
+            {displayMessages.map((message) => (
           <div
             key={message.id}
                 className={`p-2 rounded border ${getMessageStyle(message.type)} text-xs font-mono`}

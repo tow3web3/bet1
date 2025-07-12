@@ -371,6 +371,12 @@ io.on('connection', (socket) => {
     socket.emit('chat_messages', currentBattle.chatMessages);
   }
 
+  // Envoyer les messages de chat utilisateur existants
+  const userMessages = currentBattle.chatMessages.filter(msg => msg.type === 'user');
+  if (userMessages.length > 0) {
+    socket.emit('user_chat_messages', userMessages);
+  }
+
   // Gestion des batailles globales
   socket.on('place_bet', (data) => {
     console.log('[SOCKET/BET] Pari reçu via socket.io :', data);
@@ -399,6 +405,33 @@ io.on('connection', (socket) => {
       io.emit('battle_update', currentBattle);
       io.emit('chat_message', betMessage);
     }
+  });
+
+  // Gestion des messages de chat utilisateur
+  socket.on('user_chat_message', (msg) => {
+    console.log('[SOCKET/USERCHAT] Message utilisateur reçu :', msg);
+    
+    // Valider le message
+    if (!msg.user || !msg.message || !msg.message.trim()) {
+      console.log('[SOCKET/USERCHAT] Message invalide ignoré');
+      return;
+    }
+    
+    // Créer le message formaté
+    const userMessage = {
+      id: Date.now().toString(),
+      user: msg.user,
+      message: msg.message.trim(),
+      timestamp: new Date().toISOString(),
+      type: 'user'
+    };
+    
+    // Ajouter au chat global (optionnel)
+    currentBattle.chatMessages.push(userMessage);
+    
+    // Diffuser à tous les clients
+    io.emit('user_chat_message', userMessage);
+    console.log('[SOCKET/USERCHAT] Message diffusé à tous les clients');
   });
 });
 

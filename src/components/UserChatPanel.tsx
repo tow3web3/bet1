@@ -63,8 +63,15 @@ const UserChatPanel: React.FC = () => {
       setMessages((prev) => [...prev, msg]);
     });
 
+    // Écouter les messages existants au moment de la connexion
+    socket.on('user_chat_messages', (messages: UserChatMessage[]) => {
+      console.log('[USERCHAT] 📜 Messages existants reçus:', messages.length);
+      setMessages(messages);
+    });
+
     return () => {
       socket.off('user_chat_message');
+      socket.off('user_chat_messages');
     };
   }, []);
 
