@@ -2,7 +2,7 @@ import React from 'react';
 
 const FAQModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-    <div className="bg-black/95 border border-yellow-400/40 rounded-2xl shadow-neon-yellow p-6 max-w-lg w-full relative text-yellow-100 font-mono">
+    <div className="bg-black/95 border border-yellow-400/40 rounded-2xl shadow-neon-yellow p-4 max-w-md w-full max-h-[80vh] overflow-y-auto relative text-yellow-100 font-mono">
       <button
         className="absolute top-2 right-2 text-yellow-400 hover:text-white text-xl font-bold"
         onClick={onClose}
