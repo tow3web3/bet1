@@ -38,11 +38,17 @@ export const GameHistory: React.FC<GameHistoryProps> = ({ initialTab }) => {
   // Rafraîchissement automatique de l'historique utilisateur chaque seconde
   useEffect(() => {
     if (!user || !user.fullAddress) return;
-    const historyKey = `user_history_${user.fullAddress}`;
-    const interval = setInterval(() => {
-      const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-      setUserHistory(history);
-    }, 1000);
+    const fetchUserHistory = async () => {
+      try {
+        const res = await fetch(`/api/user-history/${user.fullAddress}`);
+        const data = await res.json();
+        setUserHistory(data || []);
+      } catch (e) {
+        setUserHistory([]);
+      }
+    };
+    fetchUserHistory();
+    const interval = setInterval(fetchUserHistory, 1000);
     return () => clearInterval(interval);
   }, [user]);
 

@@ -297,6 +297,34 @@ app.get('/api/history', (req, res) => {
   res.json(globalBattleHistory);
 });
 
+// Endpoint pour l'historique utilisateur (par wallet)
+app.get('/api/user-history/:wallet', (req, res) => {
+  const { wallet } = req.params;
+  if (!wallet) return res.status(400).json({ error: 'Wallet manquant' });
+  // On cherche dans l'historique global tous les paris de ce wallet
+  const userHistory = globalBattleHistory.flatMap(battle => {
+    // On cherche les bets de ce wallet pour cette bataille
+    const bets = (battle.bets || []).filter(bet => bet.userAddress === wallet);
+    if (bets.length === 0) return [];
+    // Pour chaque bet, on construit une entrée d'historique
+    return bets.map(bet => ({
+      battleId: battle.id,
+      date: battle.endTime || battle.startTime,
+      team: bet.teamId,
+      amount: bet.amount,
+      winner: battle.winner,
+      success: bet.teamId === battle.winner,
+      gain: bet.teamId === battle.winner ? (battle.totalPool * 0.95) / (battle.bets.filter(b => b.teamId === battle.winner).length) : 0,
+      perte: bet.teamId !== battle.winner ? bet.amount : 0,
+      totalPool: battle.totalPool,
+      participants: battle.participants,
+      teams: battle.teams,
+      tx: bet.tx || null // Si on a la tx dans le bet
+    }));
+  });
+  res.json(userHistory);
+});
+
 // Endpoint pour le leaderboard global
 app.get('/api/leaderboard', (req, res) => {
   // Transforme l'objet en tableau trié
