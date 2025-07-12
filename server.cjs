@@ -528,22 +528,23 @@ io.on('connection', (socket) => {
   // Gestion des batailles globales
   socket.on('place_bet', (data) => {
     console.log('[SOCKET/BET] Pari reçu via socket.io :', data);
-    currentBattle.bets.push({ teamId: data.teamId, amount: data.amount, userAddress: data.userAddress });
+    const betAmount = data.amount * 0.85;
+    currentBattle.bets.push({ teamId: data.teamId, amount: betAmount, userAddress: data.userAddress });
     console.log('[SOCKET/BET] Paris enregistrés après ajout (socket.io) :', JSON.stringify(currentBattle.bets, null, 2));
     
     // Mettre à jour les stats de l'équipe
     const team = currentBattle.teams.find(t => t.id === data.teamId);
     if (team) {
       team.bets += 1;
-      team.totalAmount += data.amount;
-      currentBattle.totalPool += data.amount;
+      team.totalAmount += betAmount;
+      currentBattle.totalPool += betAmount;
       currentBattle.participants = io.engine.clientsCount;
       
       // Ajouter un message de chat pour le pari
       const betMessage = {
         id: Date.now().toString(),
         user: data.userAddress ? `${data.userAddress.slice(0,4)}...${data.userAddress.slice(-4)}` : 'Anonyme',
-        message: `💎 Pari ${data.amount} SOL sur ${team.name}`,
+        message: `💎 Pari ${betAmount} SOL sur ${team.name} (15% taxe: 5% burn, 5% rake, 5% Lucky Pool)` ,
         timestamp: new Date(),
         type: 'bet'
       };
