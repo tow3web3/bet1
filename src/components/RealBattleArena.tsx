@@ -10,6 +10,8 @@ interface RealBattleArenaProps {
 }
 
 export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
+  console.log('[DEBUG] RealBattleArena render avec battle:', battle);
+  
   const { user, placeBet: walletPlaceBet, loading } = useSolanaWallet();
   const { placeBet: globalPlaceBet, addChatMessage } = useGlobalBattle();
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);

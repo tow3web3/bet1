@@ -9,6 +9,8 @@ interface ChatPanelProps {
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage }) => {
+  console.log('[DEBUG] ChatPanel render avec messages:', messages);
+  
   const [inputMessage, setInputMessage] = useState('');
   const { user } = useSolanaWallet();
   const messagesEndRef = useRef<HTMLDivElement>(null);
