@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Users, Clock, Trophy, Coins, AlertCircle, Timer } from 'lucide-react';
 import { Battle } from '../types';
 import { useSolanaWallet } from '../hooks/useSolanaWallet';
@@ -16,6 +16,42 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
   const { placeBet: globalPlaceBet, addChatMessage } = useGlobalBattle();
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [betting, setBetting] = useState(false);
+  
+  // États pour la jauge de combat
+  const [gaugePosition, setGaugePosition] = useState(50); // 50% = milieu
+  const [gaugeAnimation, setGaugeAnimation] = useState<'oscillating' | 'finalizing' | 'static'>('static');
+
+  // Animation de la jauge pendant le combat
+  useEffect(() => {
+    if (battle?.status === 'active') {
+      setGaugeAnimation('oscillating');
+      setGaugePosition(50); // Reset au milieu
+      
+      const interval = setInterval(() => {
+        setGaugePosition(prev => {
+          // Oscillation fluide entre 20% et 80%
+          const oscillation = Math.sin(Date.now() * 0.003) * 30 + 50;
+          return Math.max(20, Math.min(80, oscillation));
+        });
+      }, 100);
+      
+      return () => clearInterval(interval);
+    } else if (battle?.status === 'finished') {
+      setGaugeAnimation('finalizing');
+      
+      // Animation finale vers le gagnant
+      const winner = battle.teams.find(t => t.id === battle.winner);
+      const finalPosition = winner?.id === battle.teams[0].id ? 0 : 100;
+      
+      setTimeout(() => {
+        setGaugePosition(finalPosition);
+        setTimeout(() => setGaugeAnimation('static'), 1000);
+      }, 500);
+    } else {
+      setGaugeAnimation('static');
+      setGaugePosition(50);
+    }
+  }, [battle?.status, battle?.winner]);
 
   // Vérifie si l'utilisateur a déjà parié sur ce combat
   let hasAlreadyBet = false;
@@ -152,6 +188,66 @@ export const RealBattleArena: React.FC<RealBattleArenaProps> = ({ battle }) => {
       <div className="mb-2">
         <BattleTimer battle={battle} />
       </div>
+      
+      {/* JAUGE DE COMBAT ANIMÉE */}
+      <div className="mb-3">
+        <div className="relative bg-black/40 rounded-full h-4 border border-green-400/30 overflow-hidden">
+          {/* Fond de la jauge */}
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-purple-500/20 to-blue-500/20"></div>
+          
+          {/* Barre de progression animée */}
+          <div 
+            className={`absolute top-0 h-full transition-all duration-300 ${
+              gaugeAnimation === 'oscillating' 
+                ? 'bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 animate-pulse' 
+                : gaugeAnimation === 'finalizing'
+                ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 shadow-neon-yellow'
+                : 'bg-gradient-to-r from-green-400 to-green-500'
+            }`}
+            style={{ 
+              width: `${gaugePosition}%`,
+              transition: gaugeAnimation === 'oscillating' ? 'none' : 'all 1s ease-in-out'
+            }}
+          ></div>
+          
+          {/* Indicateur central */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-2 bg-white rounded-full shadow-neon-white"></div>
+          
+          {/* Labels des équipes */}
+          <div className="absolute -top-6 left-0 text-xs text-red-400 font-bold">
+            {battle.teams[0]?.name || 'Équipe 1'}
+          </div>
+          <div className="absolute -top-6 right-0 text-xs text-blue-400 font-bold">
+            {battle.teams[1]?.name || 'Équipe 2'}
+          </div>
+          
+          {/* Effet de particules pendant l'oscillation */}
+          {gaugeAnimation === 'oscillating' && (
+            <div className="absolute inset-0">
+              <div className="absolute top-1 left-1/4 w-1 h-1 bg-yellow-400 rounded-full animate-ping"></div>
+              <div className="absolute top-2 right-1/3 w-1 h-1 bg-purple-400 rounded-full animate-ping" style={{animationDelay: '0.5s'}}></div>
+              <div className="absolute top-1 right-1/4 w-1 h-1 bg-green-400 rounded-full animate-ping" style={{animationDelay: '1s'}}></div>
+            </div>
+          )}
+          
+          {/* Message de statut */}
+          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-bold">
+            {gaugeAnimation === 'oscillating' && (
+              <span className="text-yellow-400 animate-pulse">⚔️ COMBAT EN COURS ⚔️</span>
+            )}
+            {gaugeAnimation === 'finalizing' && (
+              <span className="text-green-400">🏆 DÉCISION FINALE 🏆</span>
+            )}
+            {gaugeAnimation === 'static' && battle?.status === 'finished' && (
+              <span className="text-blue-400">✅ COMBAT TERMINÉ ✅</span>
+            )}
+            {gaugeAnimation === 'static' && battle?.status === 'waiting' && (
+              <span className="text-purple-400">⏳ PRÉPARATION ⏳</span>
+            )}
+          </div>
+        </div>
+      </div>
+      
       {/* Avertissement pour solde insuffisant */}
       {user && user.balance < 0.02 && battle.status === 'active' && (
         <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded flex items-center space-x-2">
