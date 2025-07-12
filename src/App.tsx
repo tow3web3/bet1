@@ -10,6 +10,7 @@ import UserChatPanel from './components/UserChatPanel';
 import { Leaderboard } from './components/Leaderboard';
 import LuckyPoolInfo from './components/LuckyPoolInfo';
 import FAQModal from './components/FAQModal';
+import FluxDetails from './components/FluxDetails';
 
 function App() {
   const { currentBattle, chatMessages, connectedUsers, connected, addChatMessage } = useGlobalBattle();
@@ -85,6 +86,7 @@ function App() {
           <div className="w-full space-y-3">
             <RealWalletConnection />
             <LuckyPoolInfo />
+            <FluxDetails />
             <RealBattleArena battle={currentBattle} />
             {/* Bouton Historique */}
             <div className="flex justify-center mt-2">
