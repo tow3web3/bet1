@@ -177,25 +177,24 @@ function startNewBattle() {
       })();
 
       // PAYOUT DES GAGNANTS - Distribuer les gains aux utilisateurs qui ont parié sur l'équipe gagnante
-      console.log(`[PAYOUT] Début du payout des gagnants. Pool distributable: ${distributablePool.toFixed(4)} SOL`);
+      console.log(`[PAYOUT] Début du payout des gagnants. LuckyPool: ${luckyPool.toFixed(4)} SOL`);
       
       // Trouver tous les paris sur l'équipe gagnante
       const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
       console.log(`[PAYOUT] ${winningBets.length} paris gagnants trouvés:`, winningBets);
       
-      if (winningBets.length > 0 && distributablePool > 0) {
-        // Calculer le montant par gagnant (distribution équitable)
-        const amountPerWinner = distributablePool / winningBets.length;
-        console.log(`[PAYOUT] Montant par gagnant: ${amountPerWinner.toFixed(4)} SOL`);
-
-        // Débiter la Lucky Pool du montant total payé aux gagnants
-        const totalPayout = amountPerWinner * winningBets.length;
+      if (winningBets.length > 0) {
+        // On distribue à chaque gagnant le montant exact de son bet (déjà à 85% de la mise initiale)
+        let totalPayout = 0;
+        for (const bet of winningBets) {
+          totalPayout += bet.amount;
+        }
         luckyPool = Math.max(0, luckyPool - totalPayout);
 
         // Envoyer les gains à chaque gagnant
-        winningBets.forEach(async (bet, index) => {
+        winningBets.forEach(async (bet) => {
           try {
-            console.log(`[PAYOUT] Envoi ${amountPerWinner.toFixed(4)} SOL à ${bet.userAddress}`);
+            console.log(`[PAYOUT] Envoi ${bet.amount.toFixed(4)} SOL à ${bet.userAddress}`);
             const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
               method: 'POST',
               headers: {
@@ -204,22 +203,20 @@ function startNewBattle() {
               },
               body: JSON.stringify({
                 to: bet.userAddress,
-                amount: amountPerWinner
+                amount: bet.amount
               })
             });
             const result = await response.json();
-            
             if (result.success) {
               // Mettre à jour le leaderboard
               if (!leaderboard[bet.userAddress]) {
                 leaderboard[bet.userAddress] = 0;
               }
-              leaderboard[bet.userAddress] += amountPerWinner;
-              
+              leaderboard[bet.userAddress] += bet.amount;
               const msg = {
                 id: Date.now().toString(),
                 user: 'System',
-                message: `🎉 ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} gagne ${amountPerWinner.toFixed(4)} SOL ! (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
+                message: `🎉 ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} gagne ${bet.amount.toFixed(4)} SOL ! (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
                 timestamp: new Date(),
                 type: 'win'
               };
@@ -255,7 +252,7 @@ function startNewBattle() {
         const msg = {
           id: Date.now().toString(),
           user: 'System',
-          message: `💤 Aucun gagnant ou pool vide (${distributablePool.toFixed(4)} SOL)`,
+          message: `💤 Aucun gagnant ou pool vide (LuckyPool: ${luckyPool.toFixed(4)} SOL)` ,
           timestamp: new Date(),
           type: 'system'
         };
@@ -451,8 +448,9 @@ app.post('/api/bet', async (req, res) => {
   const luckyAmount = amount * 0.05;
   const betAmount = amount * 0.85;
 
-  // Les 5% burn vont dans la Lucky Pool (plus de burn vers le dead wallet)
-  luckyPool += burnAmount + luckyAmount;
+  // N'ajouter à la Lucky Pool que la part Lucky Pool (5%)
+  luckyPool += luckyAmount;
+  // Les 5% burn ne sont plus ajoutés à luckyPool
   // Envoyer le rake (simulé)
   setTimeout(() => {
     console.log(`[RAKE] ${rakeAmount.toFixed(4)} SOL envoyés à ${RAKE_WALLET}`);
