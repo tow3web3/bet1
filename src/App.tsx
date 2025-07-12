@@ -9,6 +9,7 @@ import { useSolanaWallet } from './hooks/useSolanaWallet';
 import UserChatPanel from './components/UserChatPanel';
 import { Leaderboard } from './components/Leaderboard';
 import LuckyPoolInfo from './components/LuckyPoolInfo';
+import FAQModal from './components/FAQModal';
 
 function App() {
   const { currentBattle, chatMessages, connectedUsers, connected, addChatMessage } = useGlobalBattle();
@@ -16,6 +17,7 @@ function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<'profile' | 'history'>('profile');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showFAQ, setShowFAQ] = useState(false);
 
   useEffect(() => {
     const handler = () => {
@@ -50,14 +52,25 @@ function App() {
       </header>
 
       {/* Bouton Leaderboard en haut à droite */}
-      <button
-        className="fixed top-4 right-4 z-50 bg-gradient-to-br from-yellow-400 to-green-400 text-black font-bold px-4 py-2 rounded-xl shadow-neon-green border-2 border-green-400/40 hover:scale-105 transition-all"
-        onClick={() => setShowLeaderboard(true)}
-      >
-        🏆 Leaderboard
-      </button>
+      <div className="fixed top-4 right-4 z-50 flex space-x-2">
+        <button
+          className="bg-gradient-to-br from-yellow-400 to-green-400 text-black font-bold px-4 py-2 rounded-xl shadow-neon-green border-2 border-green-400/40 hover:scale-105 transition-all"
+          onClick={() => setShowLeaderboard(true)}
+        >
+          🏆 Leaderboard
+        </button>
+        <button
+          className="bg-gradient-to-br from-yellow-300 to-yellow-500 text-black font-bold px-4 py-2 rounded-xl shadow-neon-yellow border-2 border-yellow-400/40 hover:scale-105 transition-all"
+          onClick={() => setShowFAQ(true)}
+        >
+          ❓ FAQ
+        </button>
+      </div>
       {showLeaderboard && (
         <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      )}
+      {showFAQ && (
+        <FAQModal onClose={() => setShowFAQ(false)} />
       )}
 
       {/* Layout 3 colonnes */}
