@@ -177,24 +177,23 @@ function startNewBattle() {
       })();
 
       // PAYOUT DES GAGNANTS - Distribuer les gains aux utilisateurs qui ont parié sur l'équipe gagnante
-      console.log(`[PAYOUT] Début du payout des gagnants. LuckyPool: ${luckyPool.toFixed(4)} SOL`);
-      
+      console.log(`[PAYOUT] Début du payout des gagnants. Pool combat: ${currentBattle.bets.reduce((sum, b) => sum + b.amount, 0).toFixed(4)} SOL`);
+
       // Trouver tous les paris sur l'équipe gagnante
       const winningBets = currentBattle.bets.filter(bet => bet.teamId === currentBattle.winner);
       console.log(`[PAYOUT] ${winningBets.length} paris gagnants trouvés:`, winningBets);
-      
+
       if (winningBets.length > 0) {
-        // On distribue à chaque gagnant le montant exact de son bet (déjà à 85% de la mise initiale)
-        let totalPayout = 0;
-        for (const bet of winningBets) {
-          totalPayout += bet.amount;
-        }
-        luckyPool = Math.max(0, luckyPool - totalPayout);
+        // Calculer le pool du combat (somme de tous les bets)
+        const totalPool = currentBattle.bets.reduce((sum, b) => sum + b.amount, 0);
+        // Part équitable pour chaque gagnant
+        const amountPerWinner = totalPool / winningBets.length;
+        console.log(`[PAYOUT] Montant par gagnant: ${amountPerWinner.toFixed(4)} SOL`);
 
         // Envoyer les gains à chaque gagnant
         winningBets.forEach(async (bet) => {
           try {
-            console.log(`[PAYOUT] Envoi ${bet.amount.toFixed(4)} SOL à ${bet.userAddress}`);
+            console.log(`[PAYOUT] Envoi ${amountPerWinner.toFixed(4)} SOL à ${bet.userAddress}`);
             const response = await fetch(`http://localhost:${process.env.PORT || 3001}/api/payout`, {
               method: 'POST',
               headers: {
@@ -203,7 +202,7 @@ function startNewBattle() {
               },
               body: JSON.stringify({
                 to: bet.userAddress,
-                amount: bet.amount
+                amount: amountPerWinner
               })
             });
             const result = await response.json();
@@ -212,11 +211,11 @@ function startNewBattle() {
               if (!leaderboard[bet.userAddress]) {
                 leaderboard[bet.userAddress] = 0;
               }
-              leaderboard[bet.userAddress] += bet.amount;
+              leaderboard[bet.userAddress] += amountPerWinner;
               const msg = {
                 id: Date.now().toString(),
                 user: 'System',
-                message: `🎉 ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} gagne ${bet.amount.toFixed(4)} SOL ! (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
+                message: `🎉 ${bet.userAddress.slice(0,4)}...${bet.userAddress.slice(-4)} gagne ${amountPerWinner.toFixed(4)} SOL ! (tx: ${result.signature.slice(0,5)}...${result.signature.slice(-4)})`,
                 timestamp: new Date(),
                 type: 'win'
               };
@@ -252,7 +251,7 @@ function startNewBattle() {
         const msg = {
           id: Date.now().toString(),
           user: 'System',
-          message: `💤 Aucun gagnant ou pool vide (LuckyPool: ${luckyPool.toFixed(4)} SOL)` ,
+          message: `💤 Aucun gagnant ou pool vide (Pool combat: ${currentBattle.bets.reduce((sum, b) => sum + b.amount, 0).toFixed(4)} SOL)` ,
           timestamp: new Date(),
           type: 'system'
         };
